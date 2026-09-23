@@ -106,11 +106,18 @@ JSON. A byte comparison would also fire on a last-bit difference in whichever
 numpy the runner installed, which is noise, and would report it as though the
 physics had changed.
 
-The package is checked out at `main` rather than a pinned ref, for the reason
-nanofab-simulator pins nothing on hologram. And note CI passes `$GRATINGLAB`
-rather than using the flat `../gratinglab` layout, because with both repos
-called gratinglab that layout cannot exist — one would have to sit inside the
-other.
+The package is checked out at its default branch rather than a pinned ref, for
+the reason nanofab-simulator pins nothing on hologram. **Do not write `ref: main`
+there.** Every magmacrunch repo uses `main`; the package uses **`master`**, and
+that is the only place in this tree where the two accounts differ on it. Naming
+the wrong branch fails at checkout with a bare `The process '/usr/bin/git' failed
+with exit code 1`, which mentions neither the branch nor the repository — the
+first CI run here died exactly that way. Omitting `ref:` takes whatever the
+default is and survives a later rename.
+
+CI also passes `$GRATINGLAB` rather than using the flat `../gratinglab` layout,
+because with both repos called gratinglab that layout cannot exist — one would
+have to sit inside the other.
 
 `tools/ref.py` sets `sys.stdout.reconfigure(newline="\n")`, so the documented
 `> tools/fixture.json` redirect writes LF on Windows too. Without it the file

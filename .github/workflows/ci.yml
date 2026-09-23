@@ -6,9 +6,9 @@
 #   `check`   holds the shipping page to the COMMITTED fixture. Node only, no
 #             network, no Python. This is the one that must always be green.
 #
-#   `fixture` regenerates the fixture from jamccoy/gratinglab at main and runs
-#             the same comparison against that. It answers a different question:
-#             has the package moved underneath us?
+#   `fixture` regenerates the fixture from jamccoy/gratinglab's default branch
+#             and runs the same comparison against that. It answers a different
+#             question: has the package moved underneath us?
 #
 # So the pair is diagnostic rather than redundant:
 #
@@ -17,8 +17,8 @@
 #                                 commit the new tools/fixture.json
 #   both red                   -> look at `check` first
 #
-# The package is checked out at main rather than a pinned ref, on purpose and
-# for the same reason nanofab-simulator pins nothing on hologram: a port that
+# The package is checked out at its default branch rather than a pinned ref, on
+# purpose and for the reason nanofab-simulator pins nothing on hologram: a port that
 # tracks an unreleased change in the package would pass on the development
 # machine, where one tree holds both halves, and nowhere else. This is what
 # notices.
@@ -76,7 +76,7 @@ jobs:
         run: node tools/check.mjs
 
   fixture:
-    name: port vs the package at main
+    name: port vs the package
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -85,11 +85,15 @@ jobs:
         with:
           path: gratinglab-app
 
+      # No `ref:`, so this takes the package's DEFAULT branch. Do not write
+      # `main` here: every magmacrunch repo uses main and the package uses
+      # master, and naming the wrong one fails at checkout with a bare
+      # "git failed with exit code 1" that says nothing about branches.
+      # Leaving it off also survives the package renaming its branch later.
       - name: Check out the package
         uses: actions/checkout@v7
         with:
           repository: jamccoy/gratinglab
-          ref: main
           path: gratinglab-package
 
       - uses: actions/setup-node@v4
