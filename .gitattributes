@@ -1,0 +1,4 @@
+# What is committed is LF. tools/check.mjs slices app/index.html by exact text
+# anchors, so a CRLF round trip through the working tree would change the bytes
+# it matches on for no reason a diff would make visible.
+* text=auto eol=lf
