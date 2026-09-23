@@ -1,0 +1,132 @@
+# Does the port still agree with the package it was ported from?
+#
+# app/index.html holds a JavaScript rewrite of arithmetic that already exists in
+# Python. That drifts, in two directions, and the two jobs here separate them:
+#
+#   `check`   holds the shipping page to the COMMITTED fixture. Node only, no
+#             network, no Python. This is the one that must always be green.
+#
+#   `fixture` regenerates the fixture from jamccoy/gratinglab at main and runs
+#             the same comparison against that. It answers a different question:
+#             has the package moved underneath us?
+#
+# So the pair is diagnostic rather than redundant:
+#
+#   check red                  -> the port changed, or broke
+#   check green, fixture red   -> the package changed; rerun tools/ref.py and
+#                                 commit the new tools/fixture.json
+#   both red                   -> look at `check` first
+#
+# The package is checked out at main rather than a pinned ref, on purpose and
+# for the same reason nanofab-simulator pins nothing on hologram: a port that
+# tracks an unreleased change in the package would pass on the development
+# machine, where one tree holds both halves, and nowhere else. This is what
+# notices.
+#
+# jamccoy/gratinglab is public, so that checkout needs no credential. If it is
+# ever made private this needs a read-only deploy key on it, held here as a
+# secret and passed as `ssh-key:`, the way block-island-simulator reaches
+# daffodil.
+#
+# Note the two repositories have the SAME NAME, so the flat `../gratinglab`
+# layout that tools/ref.py prefers cannot exist here -- one of them would have
+# to sit inside the other. CI therefore uses $GRATINGLAB, which is ref.py's
+# first candidate and exists precisely for this.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: port vs committed fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The page has to stay one self-contained file: ios/package.mjs bundles it
+      # as a single document, and a stylesheet or script pulled from a CDN would
+      # leave the application blank offline rather than failing loudly. Google
+      # Fonts is the one exception, and it degrades to the fallback stack.
+      - name: The application is still one file
+        run: |
+          if grep -nE '<script[^>]+src=' app/index.html; then
+            echo "::error file=app/index.html::external script; the page must stay self-contained"
+            exit 1
+          fi
+          if grep -nE '<link[^>]+stylesheet' app/index.html \
+             | grep -v 'fonts.googleapis.com'; then
+            echo "::error file=app/index.html::external stylesheet other than Google Fonts"
+            exit 1
+          fi
+
+      - name: Conformance
+        run: node tools/check.mjs
+
+  fixture:
+    name: port vs the package at main
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the app
+        uses: actions/checkout@v7
+        with:
+          path: gratinglab-app
+
+      - name: Check out the package
+        uses: actions/checkout@v7
+        with:
+          repository: jamccoy/gratinglab
+          ref: main
+          path: gratinglab-package
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # gratinglab is not pip-installed; tools/ref.py puts its src/ on sys.path.
+      # These are the package's own runtime dependencies, minus the solver-only
+      # extras the scalar path does not touch.
+      - name: Install the package's dependencies
+        run: python -m pip install --quiet numpy pydantic
+
+      - name: Regenerate the fixture from the package
+        working-directory: gratinglab-app
+        env:
+          GRATINGLAB: ${{ github.workspace }}/gratinglab-package
+        run: |
+          python tools/ref.py > tools/fixture.json
+          git --no-pager diff --stat -- tools/fixture.json || true
+
+      # Deliberately the same comparison as the `check` job, against the
+      # regenerated values: any real difference then prints as per-order numbers
+      # at the 1e-9 tolerance, rather than as a JSON diff that would also flag a
+      # harmless last-bit change in someone's numpy build.
+      - name: Conformance against the regenerated fixture
+        working-directory: gratinglab-app
+        run: node tools/check.mjs
+
+      - name: What changed, if anything
+        if: failure()
+        working-directory: gratinglab-app
+        run: |
+          echo "The package's solver no longer agrees with the committed port."
+          echo "If the package is right, rerun tools/ref.py locally and commit"
+          echo "the new tools/fixture.json. If the port is right, fix the port."
+          git --no-pager diff -- tools/fixture.json | head -60

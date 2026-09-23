@@ -1,5 +1,7 @@
 # gratinglab
 
+[![ci](https://github.com/magmacrunch-media/gratinglab/actions/workflows/ci.yml/badge.svg)](https://github.com/magmacrunch-media/gratinglab/actions/workflows/ci.yml)
+
 > **There are two repositories called `gratinglab`, and they are not the same
 > thing.** This one — `magmacrunch-media/gratinglab` — is the *application*.
 > [`jamccoy/gratinglab`](https://github.com/jamccoy/gratinglab) is the Python
@@ -67,8 +69,15 @@ gold. Agreement is to 2.6e-13 relative; the tolerance is 1e-9. Needs node and
 nothing else.
 
 `tools/ref.py` regenerates the fixture and is the only thing that needs Python,
-numpy, pydantic and a gratinglab checkout. It finds gratinglab by `$GRATINGLAB`,
-then `../gratinglab`, then `../../../jamccoy/gratinglab`.
+numpy, pydantic and a checkout of the package. It finds one by `$GRATINGLAB`,
+then `../gratinglab`, then `../../../jamccoy/gratinglab` — skipping any
+candidate that resolves to this repo, which is called gratinglab too.
+
+CI runs the same comparison twice, and the pair is diagnostic rather than
+redundant: `check` holds the page to the committed fixture, and `fixture`
+regenerates it from `jamccoy/gratinglab` at `main` first. So `check` red means
+the port moved, and `check` green with `fixture` red means the package did and
+`tools/fixture.json` wants regenerating.
 
 ## Layout
 

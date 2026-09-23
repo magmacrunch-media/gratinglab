@@ -89,6 +89,34 @@ destroys the model's own signal about how far it has strayed.
 If either of those is ever "fixed", the fixture will disagree, which is the
 point.
 
+## CI answers two questions, not one
+
+`check` holds `app/index.html` to the committed `tools/fixture.json`, with node
+alone. `fixture` regenerates that file from `jamccoy/gratinglab` at `main` and
+runs the identical comparison against the result. Read the pair:
+
+| | |
+|---|---|
+| `check` red | the port changed, or broke |
+| `check` green, `fixture` red | the package moved; rerun `tools/ref.py` and commit the new fixture |
+| both red | look at `check` first |
+
+The second job compares **numerically at the 1e-9 tolerance**, not by diffing
+JSON. A byte comparison would also fire on a last-bit difference in whichever
+numpy the runner installed, which is noise, and would report it as though the
+physics had changed.
+
+The package is checked out at `main` rather than a pinned ref, for the reason
+nanofab-simulator pins nothing on hologram. And note CI passes `$GRATINGLAB`
+rather than using the flat `../gratinglab` layout, because with both repos
+called gratinglab that layout cannot exist — one would have to sit inside the
+other.
+
+`tools/ref.py` sets `sys.stdout.reconfigure(newline="\n")`, so the documented
+`> tools/fixture.json` redirect writes LF on Windows too. Without it the file
+comes out CRLF there, `.gitattributes` normalises it away at commit, and the
+result is a working tree that silently disagrees with its own index.
+
 ## Rebuilding the Au table
 
 ```bash

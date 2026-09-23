@@ -22,6 +22,13 @@ import os
 import sys
 from pathlib import Path
 
+# Python's text-mode stdout writes CRLF on Windows, so the documented
+# `> tools/fixture.json` redirect would produce a CRLF file there and an LF one
+# everywhere else. .gitattributes normalises it away at commit, which means the
+# damage is invisible in `git status` and shows up only as a working tree that
+# does not match its own index. Fix it at the source instead.
+sys.stdout.reconfigure(newline="\n")
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 
