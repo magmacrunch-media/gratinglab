@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Cone of Diffraction</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -53,10 +54,12 @@
   .stamp h1{
     margin:0; font-size:13px; font-weight:600; letter-spacing:.14em;
     text-transform:uppercase; color:var(--ink);
+    text-shadow:0 0 10px var(--ground), 0 0 4px var(--ground);
   }
   .stamp p{
     margin:0; font-family:"IBM Plex Mono",ui-monospace,monospace;
     font-size:11px; color:var(--ink-faint); letter-spacing:.02em;
+    text-shadow:0 0 10px var(--ground), 0 0 4px var(--ground);
   }
   .thesis{
     position:absolute; right:16px; top:16px; pointer-events:none;
@@ -64,6 +67,7 @@
     font-variant-numeric:tabular-nums; text-align:right;
   }
   .thesis div{display:flex; flex-direction:column; gap:3px;}
+  .thesis .v, .thesis .k{text-shadow:0 0 10px var(--ground), 0 0 4px var(--ground);}
   .thesis .k{font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint);}
   .thesis .v{font-size:19px; color:var(--ink); line-height:1;}
   .thesis .v.fan{color:var(--order);}
@@ -126,6 +130,7 @@
     font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px;
     color:var(--ink); font-variant-numeric:tabular-nums; width:82px; text-align:right;
   }
+  .knob .val.over{color:var(--blaze);}
   .seg{display:flex; gap:0; border:1px solid var(--rule); border-radius:6px; overflow:hidden;}
   .seg button{
     flex:1 1 0; appearance:none; border:none; background:var(--panel-2);
@@ -226,7 +231,7 @@
     <canvas id="sky"></canvas>
     <div class="stamp">
       <h1>Cone of Diffraction</h1>
-      <p>extreme off-plane mount &middot; grazing incidence</p>
+      <p id="stamp-sub">extreme off-plane mount &middot; grazing incidence</p>
     </div>
     <div class="thesis">
       <div class="narrow-hide"><span class="k">polar spread</span><span class="v" id="t-polar">0.00&deg;</span></div>
@@ -261,6 +266,13 @@
         <span class="name">&gamma; half-cone</span>
         <input type="range" id="k-gamma" min="0" max="1000" value="0">
         <span class="val" id="v-gamma"></span>
+      </div>
+      <div class="knob">
+        <span class="name">reduced</span>
+        <div class="seg" id="sweepseg">
+          <button type="button" id="sweep">sweep</button>
+        </div>
+        <span class="val" id="v-ratio">&mdash;</span>
       </div>
       <div class="knob">
         <span class="name">&alpha; azimuth</span>
@@ -1108,6 +1120,7 @@
   function fmt(x,n){return x.toFixed(n==null?2:n);}
 
   function paintReadout(sc){
+    paintRatio();
     document.getElementById("t-polar").textContent = "0.00°";
     document.getElementById("t-fan").textContent = sc.live>1 ? fmt(sc.fan,1)+"°" : "—";
 
@@ -1199,6 +1212,7 @@
     el.value = spec.set(S[key]);
     out.textContent = spec.fmt(S[key]);
     el.addEventListener("input", function(){
+      stopSweep();               // hoisted; a hand on a knob wins over the sweep
       S[key] = spec.get(parseFloat(el.value));
       out.textContent = spec.fmt(S[key]);
       invalidate();
@@ -1267,6 +1281,108 @@
       if(t<1) requestAnimationFrame(step);
     })(t0);
   }
+
+  // ---- the gamma sweep: in-plane to off-plane -------------------------
+  //
+  // One press walks gamma between the two mounts so the morph can be watched
+  // rather than inferred. At 90° the cone of diffraction is a flat plane and
+  // the orders spread across it in their hundreds; closing it to 1.5° collapses
+  // the same picture to a needle with a handful of orders on a 93.8° fan. The
+  // header readouts already tell that story, so nothing new is drawn.
+  //
+  // Interpolation runs in SLIDER space, not in gamma. The knob's mapping is
+  // geometric (geo/geoInv), so a linear walk across the track is logarithmic in
+  // gamma, and that is the only version worth watching: everything interesting
+  // happens as sin(gamma) collapses, and a linear 90 -> 1.5 spends most of its
+  // run in the half nobody needs to see.
+  //
+  // This is physics rather than camera, so every frame invalidates the cache.
+  // Measured on the default geometry: 11.5 ms mid-cone with the coating on,
+  // 1.4 ms at either end, against a 16.7 ms frame. It fits.
+  //
+  // The direction flips to whichever end is further away, so there is never a
+  // jump cut to an endpoint, and pressing twice shows the morph both ways. The
+  // label says which way the next press goes.
+  var SWEEP_LO = 1.5, SWEEP_HI = 90, SWEEP_MS = 2600;
+  var sweepBtn = document.getElementById("sweep");
+  var sweeping = null;
+
+  function reducedRatio(){
+    return bandRange()[1] / (S.period * Math.sin(S.gamma*RAD));
+  }
+
+  var MOUNT_OFF_PLANE = 5, MOUNT_IN_PLANE = 85;
+
+  function paintMount(){
+    var g = S.gamma, t;
+    if(g <= MOUNT_OFF_PLANE)     t = "extreme off-plane mount · grazing incidence";
+    else if(g >= MOUNT_IN_PLANE) t = "in-plane mount · classical dispersion";
+    else                         t = "conical (off-plane) mount · γ = " + fmt(g,1) + "°";
+    document.getElementById("stamp-sub").textContent = t;
+  }
+
+  function paintRatio(){
+    paintMount();
+    var el = document.getElementById("v-ratio");
+    var r = reducedRatio();
+    el.textContent = fmt(r, 3);
+    el.classList.toggle("over", r > REDUCED_RATIO_WARN);
+    if(!sweeping) paintSweepLabel();
+  }
+
+  function sweepTarget(){
+    // Nearer end in slider space, which is the same as nearer in log gamma.
+    var v = geoInv(S.gamma, 0.25, 90);
+    var mid = (geoInv(SWEEP_LO,0.25,90) + geoInv(SWEEP_HI,0.25,90)) / 2;
+    return v > mid ? SWEEP_LO : SWEEP_HI;
+  }
+
+  function paintSweepLabel(){
+    sweepBtn.textContent = sweeping ? "stop"
+      : (sweepTarget() === SWEEP_LO ? "sweep → off-plane" : "sweep → in-plane");
+  }
+
+  function setGamma(x){
+    S.gamma = x;
+    document.getElementById("k-gamma").value = K.gamma.set(x);
+    document.getElementById("v-gamma").textContent = K.gamma.fmt(x);
+    invalidate();
+  }
+
+  function stopSweep(){
+    if(sweeping === null) return;
+    cancelAnimationFrame(sweeping);
+    sweeping = null;
+    sweepBtn.setAttribute("aria-pressed","false");
+    paintSweepLabel();
+  }
+
+  sweepBtn.addEventListener("click", function(){
+    if(sweeping !== null){ stopSweep(); return; }
+    var to = sweepTarget();
+    if(reduce){ setGamma(to); draw(); return; }
+
+    var v0 = geoInv(S.gamma, 0.25, 90), v1 = geoInv(to, 0.25, 90);
+    var t0 = performance.now();
+    sweepBtn.setAttribute("aria-pressed","true");
+    sweeping = -1;                 // claimed before the first frame exists
+    paintSweepLabel();
+
+    (function step(now){
+      var t = Math.min(1, (now-t0)/SWEEP_MS);
+      var e = t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+      setGamma(geo(v0 + (v1-v0)*e, 0.25, 90));
+      draw();
+      if(t<1){ sweeping = requestAnimationFrame(step); }
+      else{
+        sweeping = null;
+        sweepBtn.setAttribute("aria-pressed","false");
+        paintSweepLabel();
+      }
+    })(t0);
+  });
+
+  paintSweepLabel();
 
   // ---- orbit ----------------------------------------------------------
   var drag=null;
