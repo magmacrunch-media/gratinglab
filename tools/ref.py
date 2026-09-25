@@ -81,6 +81,24 @@ CASES = [
     dict(period=315.15, alpha=25.0, gamma=12.0, lam=3.0, blaze=29.5, coat=True),
     dict(period=600.0, alpha=5.0, gamma=45.0, lam=4.0, blaze=12.0, coat=True),
     dict(period=1000.0, alpha=15.0, gamma=2.0, lam=0.9, blaze=3.0, coat=True),
+    # The other two reflectivity models. Both apply one factor per wavelength to
+    # every order alike, so they are order-independent where "local" is not --
+    # having all three checked is what makes the difference between them
+    # measurable rather than asserted.
+    dict(period=315.15, alpha=25.0, gamma=1.5, lam=3.0, blaze=29.5, coat=True,
+         refl="average"),
+    dict(period=315.15, alpha=25.0, gamma=1.5, lam=3.0, blaze=29.5, coat=True,
+         refl="facet"),
+    dict(period=315.15, alpha=25.0, gamma=12.0, lam=3.0, blaze=29.5, coat=True,
+         refl="average"),
+    dict(period=315.15, alpha=25.0, gamma=12.0, lam=3.0, blaze=29.5, coat=True,
+         refl="facet"),
+    # A shallow blaze shadows almost nothing, so "average" should approach
+    # "facet" here and diverge from it on the deep grooves above.
+    dict(period=1000.0, alpha=15.0, gamma=2.0, lam=0.9, blaze=3.0, coat=True,
+         refl="average"),
+    dict(period=1000.0, alpha=15.0, gamma=2.0, lam=0.9, blaze=3.0, coat=True,
+         refl="facet"),
 ]
 
 #: The port's default. Must match, or every number differs by the quadrature
@@ -97,7 +115,11 @@ for case in CASES:
     )
     illumination = Illumination(alpha_deg=case["alpha"], gamma_deg=case["gamma"])
     scan = solver.solve(
-        problem, illumination, [case["lam"]], quadrature_points=QUADRATURE_POINTS
+        problem,
+        illumination,
+        [case["lam"]],
+        quadrature_points=QUADRATURE_POINTS,
+        reflectivity_model=case.get("refl", "local"),
     )
     rows = [
         {"m": int(m), "E": float(scan.efficiency[0, j])}

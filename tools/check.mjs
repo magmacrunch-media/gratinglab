@@ -34,7 +34,8 @@ if (a < 0 || b < 0) {
 }
 
 const RAD = Math.PI / 180, DEG = 180 / Math.PI, MAX_DRAWN = 81;
-const S = { period: 315.15, alpha: 25, gamma: 1.5, lambda: 3, blaze: 29.5, coating: false };
+const S = { period: 315.15, alpha: 25, gamma: 1.5, lambda: 3, blaze: 29.5,
+            coating: false, reflModel: "local" };
 
 const make = new Function("S", "RAD", "DEG", "MAX_DRAWN",
   html.slice(a, b) +
@@ -48,6 +49,7 @@ for (const entry of ref) {
   const c = entry.case;
   S.period = c.period; S.alpha = c.alpha; S.gamma = c.gamma;
   S.lambda = c.lam; S.blaze = c.blaze; S.coating = !!c.coat;
+  S.reflModel = c.refl || "local";
 
   const [lo, hi] = F.orderRange();
   const marks = [];
@@ -68,12 +70,12 @@ for (const entry of ref) {
     compared++;
     if (err > worst) {
       worst = err;
-      worstWhere = `${c.coat ? "Au" : "bare"} p=${c.period} g=${c.gamma} lam=${c.lam} m=${row.m}`;
+      worstWhere = `${c.coat ? "Au/" + (c.refl || "local") : "bare"} p=${c.period} g=${c.gamma} lam=${c.lam} m=${row.m}`;
     }
   }
   const sumErr = Math.abs(sum - entry.sum) / Math.max(entry.sum, 1e-30);
   console.log(
-    `${c.coat ? "Au  " : "bare"} p=${String(c.period).padStart(7)} ` +
+    `${c.coat ? (c.refl || "local").padEnd(7) : "bare   "} p=${String(c.period).padStart(7)} ` +
     `a=${String(c.alpha).padStart(5)} g=${String(c.gamma).padStart(5)} ` +
     `lam=${String(c.lam).padStart(5)} d=${String(c.blaze).padStart(5)}` +
     `  orders ${String(entry.orders.length).padStart(3)}` +

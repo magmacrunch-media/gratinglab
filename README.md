@@ -38,11 +38,19 @@ implementation and stays the source of truth.
   the *symmetric* flux obliquity `4 cos α cos β_m / (cos α + cos β_m)²`, so
   Lorentz reciprocity survives. ΣE is reported and **never renormalised**: the
   deviation from unity is the model's own error signal.
-- **Coatings** — Au from a CXRO/Henke table, with reflection resolved across the
-  groove cycle and carried *inside* the integral, weighted by the geometric mean
-  of the incident and exit reflectivities. That makes reflectivity
-  order-dependent and keeps the α ↔ β_m symmetry. Naming a coating is what turns
-  the numbers absolute.
+- **Coatings** — Au from a CXRO/Henke table. Naming a coating is what turns the
+  numbers absolute. All three of the package's reflectivity models are here:
+
+  | model | what it does | reciprocal |
+  |---|---|---|
+  | `local` | complex Fresnel amplitude at every quadrature point, carried *inside* the integral and weighted by the geometric mean of the incident and exit reflectivities — so reflectivity is **order-dependent** | yes |
+  | `average` | `⟨R(ζ(t))⟩` over the whole period, one factor per wavelength | no |
+  | `facet` | one `R` at the active-facet angle, applied to every order alike | no |
+
+  Only `local` symmetrises in the exit direction, which is what keeps Lorentz
+  reciprocity; the other two build `ζ` from `α` alone. The app reports all three
+  sums together, so the size of each approximation is measurable rather than
+  asserted — about −0.8% and −0.6% at the reference geometry.
 - **Broadband** — open the band and each order smears into a spectrum along the
   cone rim. Since `sin β` depends on `m` and `λ` only through their product,
   order `m` at `λ` and order `m+1` at `mλ/(m+1)` leave in the same direction.
@@ -75,9 +83,9 @@ node tools/check.mjs
 ```
 
 Extracts the physics straight out of `app/index.html` and compares it to
-`tools/fixture.json`, 470 propagating orders across 13 geometries, bare and
-gold. Agreement is to 2.6e-13 relative; the tolerance is 1e-9. Needs node and
-nothing else.
+`tools/fixture.json`: 722 propagating orders across 19 geometries, bare and
+gold, and every reflectivity model. Agreement is to 2.6e-13 relative; the
+tolerance is 1e-9. Needs node and nothing else.
 
 `tools/ref.py` regenerates the fixture and is the only thing that needs Python,
 numpy, pydantic and a checkout of the package. It finds one by `$GRATINGLAB`,

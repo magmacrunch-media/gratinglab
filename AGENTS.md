@@ -109,6 +109,39 @@ could pass for zero. A provenance item states it. The package's integral solver
 does carry transmission (`_finite.py`, `R + T = 1`); porting that is the only
 honest route to a number here.
 
+## Three reflectivity models, and only one is reciprocal
+
+`local` evaluates the complex Fresnel amplitude per quadrature point and carries
+it **inside** the integral, weighted by `√r(ζ_in)·√r(ζ_out)`. `average` and
+`facet` each produce **one factor per wavelength** applied outside it — so both
+scale every order by the same number and stay order-independent, where `local`
+does not.
+
+The difference that matters is not resolution, it is symmetry. `average` resolves
+the groove and still breaks reciprocity, because its `ζ(t)` is built from `α`
+alone. Symmetrising in the exit direction is what repairs it, and only `local`
+does that. Do not "improve" `average` by resolving it further; that is the
+measurement the package already made.
+
+Implementation notes that are easy to get wrong:
+
+- `average` averages `R(ζ(t))` over the **whole period**, with shadowed points
+  contributing zero — not over the lit part. Averaging only what is visible
+  would quietly delete the shadowing the model exists to see.
+- `facet`'s single angle is `arcsin(sin γ · cos(δ − α))`, exact for a Blazed
+  profile because it has one flat active facet.
+- **Only `local` has masks, so only `local` can suppress an order.** Pushing to
+  `suppressed` from the other two would report geometry that was never computed.
+- The bare `|G_m|²` is computed for every model, since `average` and `facet` are
+  that value scaled. `local` is the extra pass, and it runs whenever the model is
+  `local` **or** the caller asked for the comparison.
+
+The app reports all three sums together with the other two as a percentage
+difference from `local`. That is the point of having all three: the size of each
+approximation becomes measurable rather than asserted. At the reference geometry
+it is about −0.8% and −0.6%; on a shallow blaze, where almost nothing is
+shadowed, `average` converges toward `facet`.
+
 ## The obliquity factor is the symmetric one
 
 `O_m = 4 cos α cos β_m / (cos α + cos β_m)²`, **not** the `cos β_m / cos α` of
