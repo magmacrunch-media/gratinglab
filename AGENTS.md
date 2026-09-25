@@ -78,6 +78,37 @@ Two signs are load-bearing and neither is obvious:
   transmitted wave decays. The other branch grows with depth and gives a
   reflectivity above one.
 
+## Transmission is a branch, not a second grating equation
+
+`conventions.md` §4 is explicit: a transmitted order keeps the **same** equation
+and the same `sin β_m`, and is distinguished only by `cos β_m < 0`. Some
+literature rewrites transmission as `mλ/p = sin α − sin β_m` by redefining
+`β_m → β_m − π`; the package refuses to, and so does this app.
+
+Two things follow, and the app exists partly to show them:
+
+- **The propagating set is branch-independent.** `|sin β_m| ≤ 1` never mentions
+  the branch, so an order propagates in reflection and transmission together, or
+  in neither.
+- **Both branches lie on the same cone**, mirrored through the n̂ plane, because
+  `β_T = π − β_R` flips only the `cos β` component of
+  `k̂ = (sin γ sin β, sin γ cos β, cos γ)`.
+
+`betaTransmitted()` returns the raw `π − β_R`, which is what the vectors want.
+`betaTdeg()` wraps it into (−180°, 180°] **for display only** — a table reading
+231.84° instead of −128.16° invites exactly the thought that transmission uses a
+different equation.
+
+**There is no transmitted efficiency here and there must not appear to be one.**
+The ported solver is a reflection-grating model: its phase is the reflection
+double pass, and `flux_obliquity` with `cos β_m < 0` returns a negative number
+rather than an answer. Transmitted rays are therefore drawn **dashed and at
+uniform width**, so ray thickness — which for the reflected branch *is* the
+efficiency — cannot be misread, and the table shows `—` rather than a blank that
+could pass for zero. A provenance item states it. The package's integral solver
+does carry transmission (`_finite.py`, `R + T = 1`); porting that is the only
+honest route to a number here.
+
 ## The obliquity factor is the symmetric one
 
 `O_m = 4 cos α cos β_m / (cos α + cos β_m)²`, **not** the `cos β_m / cos α` of

@@ -29,6 +29,11 @@ implementation and stays the source of truth.
 
 - **Geometry** — the generalized grating equation, `sin α + sin β_m = mλ/(p sin γ)`,
   order bookkeeping, evanescent orders drawn as passing off rather than dropped.
+- **Reflection and transmission** — the same grating equation governs both, and
+  the propagation test `|sin β_m| ≤ 1` never mentions the branch, so **exactly
+  the same orders propagate on each side**. A transmitted order is distinguished
+  only by `cos β_m < 0`, which puts it on the same cone mirrored through the
+  surface. Show either branch or both.
 - **Efficiency** — `E_m = O_m |G_m|²` from the general Fourier integral, with
   the *symmetric* flux obliquity `4 cos α cos β_m / (cos α + cos β_m)²`, so
   Lorentz reciprocity survives. ΣE is reported and **never renormalised**: the
@@ -45,6 +50,12 @@ implementation and stays the source of truth.
   sweeping the arc actually sees.
 
 ## What it does not
+
+**No transmitted efficiency.** The ported solver is a reflection-grating model,
+so transmitted orders carry a direction and nothing else — they are drawn dashed
+and at uniform width precisely so their thickness cannot be read as one. The
+package's integral solver does compute transmission, with `R + T = 1`, and it is
+not ported.
 
 No rigorous method. The integral solver needs dense complex linear algebra and
 is not ported, so there is nothing here to cross-check a per-order number

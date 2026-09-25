@@ -173,7 +173,8 @@
   tr.bl td:first-child{color:var(--blaze);}
   tr.z td:first-child{color:var(--zero);}
   .swatch{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:7px; vertical-align:1px;}
-  th.barh{width:42%;}
+  th.barh{width:30%;}
+  tbody td:nth-child(2){white-space:nowrap;}
   td.bar{padding-left:10px;}
   .track{height:6px; background:#1b2436; border-radius:2px; overflow:hidden;}
   .fill{height:100%; border-radius:2px; transition:width .18s ease;}
@@ -255,6 +256,15 @@
 
     <div class="knobs">
       <div class="knob">
+        <span class="name">orders</span>
+        <div class="seg" id="branchseg">
+          <button type="button" data-v="R">refl</button>
+          <button type="button" data-v="T">trans</button>
+          <button type="button" data-v="B">both</button>
+        </div>
+        <span class="val" id="v-branch"></span>
+      </div>
+      <div class="knob">
         <span class="name">coating</span>
         <div class="seg" id="coatseg">
           <button type="button" data-v="0">none</button>
@@ -304,7 +314,7 @@
     <div class="orders">
       <h2>Orders &middot; scalar efficiency</h2>
       <table>
-        <thead><tr><th>m</th><th>&beta;</th><th>E</th><th class="barh"></th></tr></thead>
+        <thead><tr><th>m</th><th id="bhead">&beta;</th><th>E</th><th class="barh"></th></tr></thead>
         <tbody id="obody"></tbody>
       </table>
       <p class="more" id="more"></p>
@@ -334,6 +344,7 @@
 
   var S = {
     period:315.15, alpha:25, gamma:1.5, lambda:3, blaze:29.5, band:0, coating:true,
+    branch:"R",
     yaw:26.6, pitch:20.4, rim:0, spin:0
   };
 
@@ -363,6 +374,25 @@
     return m*L/(S.period*Math.sin(S.gamma*RAD)) - Math.sin(S.alpha*RAD);
   }
   function propagating(s){ return Math.abs(s) <= 1; }
+
+  // conventions.md section 4: a transmitted order keeps the SAME grating
+  // equation and the same sin beta, and is distinguished only by cos beta < 0.
+  // geometry.beta(transmitted=True) is pi - arcsin(s), which is the reflected
+  // direction mirrored through the surface. Two consequences worth stating:
+  //
+  //   * the propagation test |sin beta| <= 1 does not mention the branch, so
+  //     EXACTLY the same orders propagate in reflection and in transmission;
+  //   * both branches lie on the same cone of half-angle gamma, one on each
+  //     side of the n-hat plane.
+  function betaTransmitted(betaReflected){ return Math.PI - betaReflected; }
+
+  // beta_T comes out in [90, 270) degrees. Wrap it into (-180, 180] for DISPLAY
+  // only -- cos and sin do not care, but a table reading 231.84 invites the
+  // thought that transmission uses a different grating equation. It does not.
+  function betaTdeg(betaReflected){
+    var d = betaTransmitted(betaReflected)*DEG;
+    return d > 180 ? d - 360 : d;
+  }
 
   function orderRange(lam){
     var L = (lam == null) ? S.lambda : lam;
@@ -655,6 +685,11 @@
                   Math.round(a[2]+(b[2]-a[2])*t)+")";
   }
 
+  // Which branches are on screen. Outside the physics block on purpose: this is
+  // display state, and tools/check.mjs evaluates that block on its own.
+  function showR(){ return S.branch !== "T"; }
+  function showT(){ return S.branch !== "R"; }
+
   // ---- provenance, from ScalarSolver._provenance ----------------------
   // Two of its guards apply to an uncoated, smooth, unpolarized run, and they
   // mean opposite things. The reduced ratio is the model being pushed outside
@@ -687,6 +722,18 @@
                "Kept that way because the energy-conserving alternative violates "+
                "Lorentz reciprocity. Reported, never rescaled."});
       }
+    }
+    if(showT()){
+      out.push({level:"expected", mark:"T",
+        title:"transmitted orders: directions only, no efficiency",
+        body:"The grating equation and the propagating set are identical on both "+
+             "sides — the test |sin β| ≤ 1 never mentions the branch, so an "+
+             "order either propagates in reflection and transmission or in neither. "+
+             "The efficiency is a different matter: the solver ported here is a "+
+             "reflection-grating model, so there is no transmitted E to show. The "+
+             "package's integral solver does carry one (R + T = 1); it is not ported. "+
+             "Transmitted rays are drawn dashed and at uniform width so their "+
+             "thickness cannot be read as an efficiency."});
     }
     var e = sc.eff;
     if(S.coating && sc.spec && sc.spec.outside > 0){
@@ -958,21 +1005,40 @@
         dotAt([sgn*sg*1.16, 0.0, cg], "#ff5470", 2.2);
         continue;
       }
-      var k = kvec(mk.beta);
-      var col = mk.blaze ? "#ffc233" : (mk.m===0 ? "#95a2bb" : "#4dc4ff");
-      // Ray weight IS the efficiency: sqrt so a weak order still reads as
-      // present rather than vanishing, which would look like passing off.
-      var rel = (sc.eff && sc.eff.emax>0 && mk.eff!=null)
-        ? Math.sqrt(mk.eff/sc.eff.emax) : 0.62;
-      var wid = 0.7 + 3.4*rel;
-      line(O, k, col, wid, null, 0.22 + 0.78*rel);
-      dotAt(k, col, 1.8 + 3.2*rel);
-      if((liveIdx % labelStep === 0 && S.rim > 0.12) || mk.blaze){
-        ctx.save();
-        ctx.globalAlpha = mk.blaze ? 1 : Math.min(1,(S.rim-0.12)/0.22);
-        label(k, (mk.m>0?"+":"")+mk.m, col, 8, -1, 11.5);
-        ctx.restore();
-        labelled++;
+      var wantLabel = (liveIdx % labelStep === 0 && S.rim > 0.12) || mk.blaze;
+      var labelAlpha = mk.blaze ? 1 : Math.min(1,(S.rim-0.12)/0.22);
+      var tag = (mk.m>0?"+":"")+mk.m;
+
+      if(showR()){
+        var k = kvec(mk.beta);
+        var col = mk.blaze ? "#ffc233" : (mk.m===0 ? "#95a2bb" : "#4dc4ff");
+        // Ray weight IS the efficiency: sqrt so a weak order still reads as
+        // present rather than vanishing, which would look like passing off.
+        var rel = (sc.eff && sc.eff.emax>0 && mk.eff!=null)
+          ? Math.sqrt(mk.eff/sc.eff.emax) : 0.62;
+        line(O, k, col, 0.7 + 3.4*rel, null, 0.22 + 0.78*rel);
+        dotAt(k, col, 1.8 + 3.2*rel);
+        if(wantLabel){
+          ctx.save(); ctx.globalAlpha = labelAlpha;
+          label(k, tag, col, 8, -1, 11.5);
+          ctx.restore();
+          labelled++;
+        }
+      }
+
+      if(showT()){
+        // Uniform width and DASHED, deliberately. The ported solver is a
+        // reflection-grating model, so there is no transmitted efficiency to
+        // encode -- and a solid ray of varying weight would read as one.
+        var kt = kvec(betaTransmitted(mk.beta));
+        var colT = mk.m===0 ? "#7d8aa6" : "#b07cff";
+        line(O, kt, colT, 1.4, [5,4], 0.78);
+        dotAt(kt, colT, 2.6);
+        if(wantLabel){
+          ctx.save(); ctx.globalAlpha = labelAlpha;
+          label(kt, tag, colT, 8, -1, 11.5);
+          ctx.restore();
+        }
       }
       liveIdx++;
     }
@@ -1028,13 +1094,19 @@
     sctx.setTransform(DPR,0,0,DPR,0,0);
     sctx.clearRect(0,0,w,h);
 
-    // x axis: beta, fitted to the band with a little air
+    // x axis: beta, fitted to the band with a little air. Under "transmitted"
+    // this plots the transmitted branch, so the strip agrees with the scene;
+    // under "both" it stays on the reflected one and the legend says so, since
+    // beta_T = 180 - beta_R makes the two pictures mirror images anyway.
+    function bdeg(p){
+      return S.branch === "T" ? betaTdeg(p.beta) : p.beta*DEG;
+    }
     var b0=1e9, b1=-1e9, i, j;
     for(i=0;i<spec.rows.length;i++){
       for(j=0;j<spec.rows[i].pts.length;j++){
         var p = spec.rows[i].pts[j];
         if(!p) continue;
-        var d = p.beta*DEG;
+        var d = bdeg(p);
         if(d<b0) b0=d; if(d>b1) b1=d;
       }
     }
@@ -1092,7 +1164,7 @@
       for(var q=0;q<row.pts.length-1;q++){
         var a=row.pts[q], b=row.pts[q+1];
         if(!a || !b) continue;
-        var xa=X(a.beta*DEG), xb=X(b.beta*DEG);
+        var xa=X(bdeg(a)), xb=X(bdeg(b));
         var u=(a.lam-spec.l1)/Math.max(1e-12, spec.l2-spec.l1);
         var rel = spec.emax>0 ? a.eff/spec.emax : 0;
         sctx.globalAlpha = alphaScale*(0.10 + 0.90*Math.sqrt(rel));
@@ -1113,7 +1185,9 @@
     sctx.fillStyle="#5d6880";
     sctx.fillText(fmt(spec.l2,2)+" nm", L+72+100, 6);
     sctx.textAlign="right";
-    sctx.fillText("order overlap: the same β reached by two orders", R, 6);
+    sctx.fillText(S.branch === "both"
+      ? "order overlap, reflected branch (transmitted mirrors it)"
+      : "order overlap: the same β reached by two orders", R, 6);
   }
 
   // ---- readout -------------------------------------------------------
@@ -1150,12 +1224,26 @@
       if(!m.prop) tr.className="ev";
       else if(m.blaze) tr.className="bl";
       else if(m.m===0) tr.className="z";
-      var col = !m.prop ? "#ff5470" : m.blaze ? "#ffc233" : m.m===0 ? "#95a2bb" : "#4dc4ff";
-      var rel = (sc.eff && sc.eff.emax>0 && m.eff!=null) ? m.eff/sc.eff.emax : 0;
+      var col = !m.prop ? "#ff5470"
+              : S.branch === "T" ? (m.m===0 ? "#7d8aa6" : "#b07cff")
+              : m.blaze ? "#ffc233" : m.m===0 ? "#95a2bb" : "#4dc4ff";
+      var rel = (sc.eff && sc.eff.emax>0 && m.eff!=null && showR()) ? m.eff/sc.eff.emax : 0;
+      // One sin beta, two branches. "both" prints them together because that
+      // is the point: the same order propagates on both sides or on neither.
+      var bcell = "evan.";
+      if(m.prop){
+        var both = S.branch === "both", dp = both ? 1 : 2;
+        var bR = fmt(m.beta*DEG,dp), bT = fmt(betaTdeg(m.beta),dp);
+        bcell = S.branch === "R" ? bR+"°"
+              : S.branch === "T" ? bT+"°"
+              : bR+" / "+bT;
+      }
+      // Transmitted efficiency is not a number this model has; see provenance.
+      var ecell = (showR() && m.eff!=null) ? fmt(m.eff,4) : "—";
       tr.innerHTML =
         '<td><span class="swatch" style="background:'+col+'"></span>'+(m.m>0?"+":"")+m.m+'</td>'+
-        '<td>'+(m.prop ? fmt(m.beta*DEG,2)+"°" : "evan.")+'</td>'+
-        '<td>'+(m.eff!=null ? fmt(m.eff,4) : "—")+'</td>'+
+        '<td>'+bcell+'</td>'+
+        '<td>'+ecell+'</td>'+
         '<td class="bar"><div class="track"><div class="fill" style="width:'+
           (rel*100).toFixed(1)+'%;background:'+col+'"></div></div></td>';
       tb.appendChild(tr);
@@ -1171,13 +1259,23 @@
     else if(sc.live>MAX_DRAWN) bits.push("efficiency omitted above "+MAX_DRAWN+" orders");
     more.textContent = bits.join(" · ");
 
-    document.getElementById("t-sum").textContent = sc.eff ? fmt(sc.eff.sum,3) : "—";
+    document.getElementById("bhead").innerHTML =
+      S.branch === "R" ? "β" : S.branch === "T" ? "β (T)" : "β R / T";
+    document.getElementById("t-sum").textContent =
+      (sc.eff && showR()) ? fmt(sc.eff.sum,3) : "—";
     paintProvenance(sc);
 
     document.getElementById("cap").innerHTML =
-      "<b>To scale</b>, bar the patch size. <b>Scalar theory, "+
+      "<b>To scale</b>, bar the patch size. "+
+      (showT()
+        ? "<b>Both branches share sin β</b> — only the sign of cos β differs, so "+
+          "the same orders propagate on each side of n̂. Dashed = transmitted, "+
+          "direction only. "
+        : "") +
+      "<b>Scalar theory, "+
       (S.coating ? "Au — absolute" : "uncoated — relative to a perfect reflector")+
-      "</b>, ray weight E<sub>m</sub>. ΣE is reported, never renormalised.";
+      "</b>"+(showR() ? ", ray weight E<sub>m</sub>. ΣE reported, never renormalised."
+                      : ", reflection only.");
   }
 
   // ---- controls ------------------------------------------------------
@@ -1219,6 +1317,25 @@
       draw();
     });
   });
+
+  (function(){
+    var seg = document.getElementById("branchseg"), out = document.getElementById("v-branch");
+    function paint(){
+      Array.prototype.forEach.call(seg.children, function(b){
+        var on = (b.dataset.v === "B") ? S.branch === "both" : b.dataset.v === S.branch;
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      out.textContent = S.branch === "R" ? "cos β > 0"
+                      : S.branch === "T" ? "cos β < 0" : "both signs";
+    }
+    Array.prototype.forEach.call(seg.children, function(b){
+      b.addEventListener("click", function(){
+        S.branch = b.dataset.v === "B" ? "both" : b.dataset.v;
+        paint(); draw();       // geometry only -- no physics to recompute
+      });
+    });
+    paint();
+  })();
 
   (function(){
     var seg = document.getElementById("coatseg"), out = document.getElementById("v-coat");
