@@ -119,6 +119,27 @@ xcrun simctl install booted ~/glbuild/dd/Build/Products/Debug-iphonesimulator/Ap
 xcrun simctl launch booted com.magmacrunch.gratinglab
 ```
 
+## The app icon
+
+`python scripts/make-icon.py` writes both appearances into the icon set; it
+needs Pillow. The drawing is a blazed grating throwing its orders, which is the
+app with everything removed that will not survive 60 points.
+
+Two things inherited from crunchscope and george-boole, and both are the point:
+
+- **A dark subject on a dark ground is a blob at home-screen size.** This app's
+  own ground is nearly black, so the gold band is what gives the icon a
+  silhouette and everything else is drawn on top of it.
+- **Judge it small.** `--sheet out.png` writes 60, 120 and 180 pixel copies,
+  masked to the iOS shape, on a light and a dark wallpaper. At 1024 everything
+  looks fine, so 1024 is not an opinion worth having. The first draft had five
+  shallow teeth that read as battlements and two rays 6 degrees apart that read
+  as a mistake; only the sheet showed either.
+
+There is a dark-appearance variant because from iOS 18 the system dims a light
+icon on a dark home screen, which takes gold towards brown. It is drawn on a
+deeper ground with a brighter band.
+
 ## Running it on the iOS simulator
 
 The Mac build host is `ssh jakemccoy@100.81.70.91` (the IP, not the hostname).
