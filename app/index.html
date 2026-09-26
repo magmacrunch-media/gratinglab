@@ -34,22 +34,22 @@
     font-size:14px; -webkit-font-smoothing:antialiased;
     overscroll-behavior:none;
   }
-  #app{
-    height:100%; display:flex; flex-direction:column;
-  }
+  /* The illustration is the product, so it gets the whole screen and the
+     controls float over it. Nothing is laid out beside the canvas. */
+  #app{height:100%; position:relative; overflow:hidden;}
   /* iOS resolves vh and 100% against the LARGEST viewport, the one with the
      URL bar hidden, so a layout sized that way is taller than what you can
      actually see and the rail's first row ends up clipped. dvh is the visible
      one; the 100% above stays as the fallback. */
   @supports (height: 100dvh){ #app{height:100dvh;} }
-  #left{flex:1 1 auto; display:flex; flex-direction:column; min-height:0;}
   #striphost{
-    flex:0 0 auto; background:#070c14; border-top:1px solid var(--rule);
+    position:absolute; left:0; right:0; bottom:54px; z-index:2;
+    background:#070c14f2; border-top:1px solid var(--rule);
   }
-  #strip{display:block; width:100%; height:178px;}
+  #strip{display:block; width:100%; height:150px;}
   /* -- stage ---------------------------------------------------------- */
   #stage{
-    position:relative; flex:1 1 auto; min-height:0;
+    position:absolute; inset:0;
     background:
       radial-gradient(120% 90% at 50% 12%, #16203300 0%, #070b12 100%),
       var(--ground);
@@ -82,46 +82,82 @@
   .thesis .v{font-size:19px; color:var(--ink); line-height:1;}
   .thesis .v.fan{color:var(--order);}
   .caption{
-    position:absolute; left:16px; right:16px; bottom:12px; pointer-events:none;
+    position:absolute; left:16px; right:16px; bottom:58px; pointer-events:none;
     font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10.5px;
     color:var(--ink-faint); line-height:1.55;
   }
   .caption b{color:var(--ink-dim); font-weight:400;}
+  /* the dispersion strip takes the bottom of the stage when a band is open */
+  #stage.hasstrip .caption{bottom:216px;}
 
   /* -- rim reveal ------------------------------------------------------ */
-  #reveal{
-    position:absolute; left:50%; transform:translateX(-50%); bottom:64px;
+  #toolbar{
+    position:absolute; left:0; right:0; bottom:0; z-index:3;
     display:flex; align-items:center; gap:12px;
-    padding:9px 14px 9px 16px; border-radius:999px;
-    background:#0f1725e6; border:1px solid var(--rule);
-    backdrop-filter:blur(8px);
+    padding:9px 16px; padding-bottom:calc(9px + env(safe-area-inset-bottom, 0px));
+    background:linear-gradient(to top, #050910f2 40%, #05091000);
   }
+  #sheetbtn{
+    flex:0 0 auto; appearance:none; cursor:pointer; font:inherit; font-size:12px;
+    color:var(--ink); background:#16203399; border:1px solid var(--rule);
+    border-radius:999px; padding:7px 14px; backdrop-filter:blur(8px);
+  }
+  #sheetbtn:hover{border-color:#3a4864;}
+  #reveal{display:flex; align-items:center; gap:10px; flex:1 1 auto; min-width:0;}
   #reveal label{
     font-size:10px; letter-spacing:.12em; text-transform:uppercase;
     color:var(--ink-dim); white-space:nowrap;
   }
+  #reveal input[type=range]{flex:1 1 auto; min-width:60px;}
   #reveal .mag{
-    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
-    color:var(--order); font-variant-numeric:tabular-nums; min-width:46px; text-align:right;
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px;
+    color:var(--order); font-variant-numeric:tabular-nums;
+    min-width:52px; text-align:right;
   }
-  #reveal.off{opacity:.45;}
+  #reveal.off{opacity:.4;}
   #reveal.off .mag{color:var(--ink-faint);}
 
   /* -- controls -------------------------------------------------------- */
-  #rail{
-    flex:0 0 auto; background:var(--panel); border-top:1px solid var(--rule);
-    display:flex; flex-direction:column; gap:0; overflow-y:auto;
+  /* The sheet slides over the illustration and is dismissable, so the default
+     state of the app is all picture. A flex column shrinks its children before
+     it overflows -- that squashed the old rail to half-height buttons and
+     overflow-y never engaged -- so the scroller is ONE child with min-height:0
+     and its contents are ordinary block flow. */
+  #sheet{
+    position:absolute; z-index:6; background:var(--panel);
+    display:flex; flex-direction:column;
+    left:0; right:0; bottom:0; max-height:62%;
+    border-top:1px solid var(--rule);
+    transform:translateY(100%); visibility:hidden;
+    transition:transform .22s ease, visibility .22s;
+    padding-bottom:env(safe-area-inset-bottom, 0px);
   }
-  /* A flex column shrinks its children before it overflows, so on a phone the
-     whole rail compressed into its box -- 1281px of content squeezed into
-     386, buttons 28px tall rendered at 14 -- and overflow-y never engaged.
-     It reads as clipping and is not. Pin the children and the rail scrolls. */
-  #rail > *{flex:0 0 auto;
+  #sheet.open{transform:none; visibility:visible;}
+  .sheethead{
+    flex:0 0 auto; display:flex; align-items:center; gap:8px;
+    padding:8px 10px 8px 14px; border-bottom:1px solid var(--rule);
   }
+  .tabs{display:flex; gap:4px; flex:1 1 auto; min-width:0;}
+  .tabs button{
+    appearance:none; cursor:pointer; font:inherit; font-size:12px;
+    color:var(--ink-dim); background:transparent; border:1px solid transparent;
+    border-radius:6px; padding:6px 11px; white-space:nowrap;
+  }
+  .tabs button[aria-selected="true"]{background:var(--surface); color:#fff;}
+  .tabs button:focus-visible, #sheetclose:focus-visible, #sheetbtn:focus-visible{
+    outline:2px solid var(--order); outline-offset:2px;
+  }
+  #sheetclose{
+    flex:0 0 auto; appearance:none; cursor:pointer; background:transparent;
+    border:none; color:var(--ink-dim); font-size:17px; line-height:1;
+    padding:6px 9px; border-radius:6px;
+  }
+  #sheetclose:hover{color:var(--ink);}
+  .sheetbody{flex:1 1 auto; min-height:0; overflow-y:auto;
+             -webkit-overflow-scrolling:touch;}
   .views{
     display:flex; gap:6px; padding:12px 16px; border-bottom:1px solid var(--rule);
     overflow-x:auto; scrollbar-width:none;
-    position:sticky; top:0; z-index:2; background:var(--panel);
   }
   .views::-webkit-scrollbar{display:none;}
   .views button{
@@ -244,20 +280,20 @@
   }
   .vflag.on{display:inline-block;}
 
-  /* Split the viewport by flex rather than by vh, for the reason above. */
-  @media (max-width:899px){
-    #left{flex:1 1 50%; min-height:0;}
-    #rail{flex:1 1 50%; min-height:0;}
-  }
-
-  @media (min-width:900px){
-    #app{flex-direction:row;}
-    #left{min-width:0;}
-    #stage{min-height:0;}
-    #rail{
-      flex:0 0 340px; max-height:none; border-top:none; border-left:1px solid var(--rule);
-      padding-bottom:env(safe-area-inset-bottom,0px);
+  /* Landscape, and any wide window: the sheet comes in from the side instead,
+     so it never covers the middle of the picture. This is the case the phone
+     needs most -- in landscape a bottom sheet would leave almost nothing. */
+  @media (min-aspect-ratio: 1/1) and (min-width: 560px){
+    #sheet{
+      left:auto; top:0; bottom:0; max-height:none;
+      /* 42% of a small landscape phone is ~280px, and the knob rows have
+         74px + 82px of fixed columns before the control gets any width.
+         Floor it at 300 so the values never clip. */
+      width:min(380px, max(300px, 42%));
+      border-top:none; border-left:1px solid var(--rule);
+      transform:translateX(100%);
     }
+    #sheet.open{transform:none;}
   }
   @media (prefers-reduced-motion:reduce){
     *{transition:none !important;}
@@ -265,7 +301,6 @@
 </style>
 
 <div id="app">
-  <div id="left">
   <div id="stage">
     <canvas id="sky"></canvas>
     <div class="stamp">
@@ -277,19 +312,32 @@
       <div><span class="k">azimuth fan</span><span class="v fan" id="t-fan">93.8&deg;</span></div>
       <div><span class="k">&Sigma; E</span><span class="v"><span id="t-sum">&mdash;</span><span class="vflag" id="t-flag"></span></span></div>
     </div>
-    <div id="reveal">
-      <label for="rim">Rim focus</label>
-      <input type="range" id="rim" min="0" max="1000" value="0" style="width:132px">
-      <span class="mag" id="magv">1.0&times;</span>
-    </div>
     <p class="caption" id="cap"></p>
-  </div>
-  <div id="striphost" hidden>
-    <canvas id="strip"></canvas>
-  </div>
+    <div id="striphost" hidden>
+      <canvas id="strip"></canvas>
+    </div>
+    <div id="toolbar">
+      <button type="button" id="sheetbtn" aria-expanded="false"
+              aria-controls="sheet">Controls</button>
+      <div id="reveal">
+        <label for="rim">Zoom</label>
+        <input type="range" id="rim" min="0" max="1000" value="0">
+        <span class="mag" id="magv">1.0&times;</span>
+      </div>
+    </div>
   </div>
 
-  <div id="rail">
+  <div id="sheet">
+    <div class="sheethead">
+      <div class="tabs" id="tabs" role="tablist">
+        <button type="button" role="tab" data-t="setup" aria-selected="true">Setup</button>
+        <button type="button" role="tab" data-t="orders" aria-selected="false">Orders</button>
+        <button type="button" role="tab" data-t="notes" aria-selected="false">Notes</button>
+      </div>
+      <button type="button" id="sheetclose" aria-label="Close controls">&times;</button>
+    </div>
+    <div class="sheetbody">
+    <section data-p="setup">
     <div class="views" id="views"></div>
 
     <div class="knobs">
@@ -358,6 +406,9 @@
       </div>
     </div>
 
+    </section>
+
+    <section data-p="orders" hidden>
     <div class="orders">
       <h2>Orders &middot; scalar efficiency</h2>
       <table>
@@ -367,9 +418,14 @@
       <p class="more" id="more"></p>
     </div>
 
+    </section>
+
+    <section data-p="notes" hidden>
     <div class="prov">
       <h2>Provenance</h2>
       <div id="provlist"></div>
+    </div>
+    </section>
     </div>
   </div>
 </div>
@@ -386,7 +442,7 @@
   // k-hat_i     = (-sin g sin a, -sin g cos a, cos g)   travels toward the grating
 
   var RAD = Math.PI/180, DEG = 180/Math.PI;
-  var PATCH_SPAN = 0.34, FRAME_HALF = 0.62, RIM_MARGIN = 1.6, MIN_RIM_MAG = 1.5;
+  var PATCH_SPAN = 0.34, MIN_RIM_MAG = 1.5;
   var MAX_DRAWN = 81, MAX_LABELS = 7;
 
   var S = {
@@ -961,11 +1017,28 @@
   function norm(a){var n=Math.hypot(a[0],a[1],a[2])||1; return [a[0]/n,a[1]/n,a[2]/n];}
   function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}
 
-  var CAM = {right:[1,0,0], up:[0,1,0], fwd:[0,0,-1], target:[0,0,0], zoom:1, px:1};
+  var CAM = {right:[1,0,0], up:[0,1,0], fwd:[0,0,-1], target:[0,0,0],
+             zoom:1, px:1, cx:0, cy:0, offX:0, offY:0};
 
-  function rimMag(){
-    var half = RIM_MARGIN*Math.sin(S.gamma*RAD);
-    return half>0 ? FRAME_HALF/half : Infinity;
+  // Every point the scene can reach, so the frame can be fitted to what is
+  // actually drawn rather than to a radius that assumes the worst case.
+  function extremes(){
+    var sg = Math.sin(S.gamma*RAD), cg = Math.cos(S.gamma*RAD), pts = [[0,0,0]], i;
+    for(i=0;i<24;i++){
+      var t = i/24*Math.PI*2;
+      pts.push([sg*Math.sin(t), sg*Math.cos(t), cg]);
+    }
+    pts.push([sg*Math.sin(S.alpha*RAD), sg*Math.cos(S.alpha*RAD), -cg]);  // -k_i
+    pts.push([0.42,0,0], [0,0.42,0], [0,0,-0.42]);
+    var hx = PATCH_SPAN/2, hz = 0.15;
+    pts.push([hx,0,hz], [hx,0,-hz], [-hx,0,hz], [-hx,0,-hz]);
+    return pts;
+  }
+
+  // Screen offsets in world units, before any scaling.
+  function flat(pt){
+    return [pt[0]*CAM.right[0] + pt[1]*CAM.right[1] + pt[2]*CAM.right[2],
+            pt[0]*CAM.up[0]    + pt[1]*CAM.up[1]    + pt[2]*CAM.up[2]];
   }
 
   function updateCamera(){
@@ -977,15 +1050,49 @@
     var u = cross(r,f);
     CAM.fwd=f; CAM.right=r; CAM.up=u;
 
-    var t = S.rim;
-    var mag = rimMag();
+    CAM.target = [0,0,0];
+    // Centre on the visible stage, not the whole canvas: the sheet and the
+    // dispersion strip cover part of it, and a scene centred behind either is
+    // a control you cannot watch while you use it.
+    var coverB = 0, coverR = 0;
+    if(sheet && sheet.classList.contains("open")){
+      var sb = sheet.getBoundingClientRect();
+      if(sb.width < W - 8) coverR = Math.max(0, W - sb.left);
+      else coverB = Math.max(0, H - sb.top);
+    }
+    if(!host.hidden) coverB = Math.max(coverB, host.getBoundingClientRect().height + 54);
+    var visW = Math.max(80, W - coverR), visH = Math.max(80, H - coverB);
+    CAM.cx = visW/2;
+    CAM.cy = visH/2;
+
+    // Fit to the scene's own projected bounds. A fixed radius has to assume the
+    // worst case from every angle, which on a phone left most of the frame
+    // empty -- the bundle is a long diagonal, not a ball.
+    var pts = extremes(), lo0=1e9, hi0=-1e9, lo1=1e9, hi1=-1e9, i;
+    for(i=0;i<pts.length;i++){
+      var f = flat(pts[i]);
+      if(f[0]<lo0) lo0=f[0]; if(f[0]>hi0) hi0=f[0];
+      if(f[1]<lo1) lo1=f[1]; if(f[1]>hi1) hi1=f[1];
+    }
+    var halfX = Math.max(1e-6, (hi0-lo0)/2), halfY = Math.max(1e-6, (hi1-lo1)/2);
+    // 0.86, not 0.94: the bounds cover the geometry, and the ray labels are
+    // drawn outside it. At 0.94 the k-hat_i label clipped the right edge.
+    var fitPx = 0.86*Math.min(visW/(2*halfX), visH/(2*halfY));
+    var fitX = -(lo0+hi0)/2, fitY = -(lo1+hi1)/2;
+
+    // Rim focus: the rim circle across ~62% of the short side, centred on it.
+    var sgm = Math.sin(S.gamma*RAD);
+    var rimPx = sgm > 0 ? 0.62*Math.min(visW, visH)/(2*sgm) : Infinity;
+    var rimC = flat([0,0,Math.cos(S.gamma*RAD)]);
+    var mag = rimPx/fitPx;
     var usable = mag >= MIN_RIM_MAG && isFinite(mag);
-    if(!usable) t = 0;
-    var ease = 1-(1-t)*(1-t);              // target settles ahead of the zoom
-    // at rest, centre on the middle of the bundle; focused, on the rim itself
-    CAM.target = [0,0,(0.46 + 0.54*ease)*Math.cos(S.gamma*RAD)];
-    CAM.zoom = usable ? Math.pow(mag, t) : 1;
-    CAM.px = Math.min(W,H)/(2*FRAME_HALF) * 0.92 * CAM.zoom;
+    var t = usable ? S.rim : 0;
+    var ease = 1-(1-t)*(1-t);          // the centre settles ahead of the zoom
+
+    CAM.px = fitPx*Math.pow(usable ? mag : 1, t);
+    CAM.offX = fitX + (-rimC[0] - fitX)*ease;
+    CAM.offY = fitY + (-rimC[1] - fitY)*ease;
+    CAM.zoom = CAM.px/fitPx;
     CAM.rimUsable = usable;
     CAM.mag = mag;
   }
@@ -995,7 +1102,8 @@
     var sx = v0*CAM.right[0]+v1*CAM.right[1]+v2*CAM.right[2];
     var sy = v0*CAM.up[0]+v1*CAM.up[1]+v2*CAM.up[2];
     var d  = v0*CAM.fwd[0]+v1*CAM.fwd[1]+v2*CAM.fwd[2];
-    return [W/2 + sx*CAM.px, H/2 - sy*CAM.px, d];
+    return [CAM.cx + (sx + CAM.offX)*CAM.px,
+            CAM.cy - (sy + CAM.offY)*CAM.px, d];
   }
 
   // ---- drawing primitives -------------------------------------------
@@ -1054,11 +1162,14 @@
   function drawPatch(){
     if(S.rim > 0.55) return;                 // off-frame once focused on the rim
     var fade = 1 - Math.max(0, (S.rim-0.25)/0.30);
-    var GROOVES = 6;
+    // Few, high-contrast grooves read as corrugated sheet. A grating is fine
+    // structure, so draw many and keep the tonal separation small; the patch
+    // size against the rays was already a declared drawing choice.
+    var GROOVES = 26;
     var nm2u = PATCH_SPAN/(GROOVES*S.period);      // nm -> ray-length units
     var depth = S.period*Math.tan(S.blaze*RAD)*nm2u;
     var pu = S.period*nm2u;
-    var halfZ = 0.17, x0 = -PATCH_SPAN/2;
+    var halfZ = 0.15, x0 = -PATCH_SPAN/2;
     var faces=[];
     for(var g=0; g<GROOVES; g++){
       var xa = x0+g*pu, xb = xa+pu;
@@ -1074,7 +1185,7 @@
     for(var i=0;i<faces.length;i++){
       var f=faces[i];
       // the anti-blaze faces sit in shadow, not in a different material
-      quad(f[0],f[1],f[2],f[3], i%2 ? "#16294e" : "#26497f", "#3568b4", 0.9*fade);
+      quad(f[0],f[1],f[2],f[3], i%2 ? "#1b3157" : "#294f86", null, 0.92*fade);
     }
   }
 
@@ -1086,7 +1197,7 @@
     var wantStrip = !!(sc.spec && !sc.spec.tooMany && sc.spec.rows.length);
     if(host.hidden === wantStrip){
       host.hidden = !wantStrip;
-      measure();
+      stage.classList.toggle("hasstrip", wantStrip);
     }
     if(!W||!H) return;
     updateCamera();
@@ -1537,7 +1648,8 @@
     Array.prototype.forEach.call(viewsEl.children, function(b,j){
       b.setAttribute("aria-pressed", j===i?"true":"false");
     });
-    var wantRim = (v.rim && rimMag()>=MIN_RIM_MAG) ? 1 : 0;
+    // CAM.mag is set by the last updateCamera, which ran on the last draw.
+    var wantRim = (v.rim && CAM.rimUsable) ? 1 : 0;
     if(reduce){
       S.yaw=v.yaw; S.pitch=v.pitch; S.rim=wantRim; rimEl.value=wantRim*1000; draw(); return;
     }
@@ -1688,7 +1800,41 @@
     draw();
   }, {passive:false});
 
+  // ---- the controls sheet ---------------------------------------------
+  var sheet = document.getElementById("sheet");
+  var sheetBtn = document.getElementById("sheetbtn");
+
+  function sheetOpen(){ return sheet.classList.contains("open"); }
+
+  function setSheet(open){
+    sheet.classList.toggle("open", open);
+    sheetBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    sheetBtn.textContent = open ? "Hide" : "Controls";
+    draw();                      // the scene recentres on the visible area
+  }
+  sheetBtn.addEventListener("click", function(){ setSheet(!sheetOpen()); });
+  document.getElementById("sheetclose").addEventListener("click", function(){
+    setSheet(false);
+  });
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && sheetOpen()) setSheet(false);
+  });
+
+  var tabs = document.getElementById("tabs");
+  Array.prototype.forEach.call(tabs.children, function(b){
+    b.addEventListener("click", function(){
+      Array.prototype.forEach.call(tabs.children, function(o){
+        o.setAttribute("aria-selected", o === b ? "true" : "false");
+      });
+      Array.prototype.forEach.call(
+        document.querySelectorAll(".sheetbody section"), function(sec){
+          sec.hidden = sec.dataset.p !== b.dataset.t;
+        });
+    });
+  });
+
   window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", resize);
   resize();
 })();
 </script>
