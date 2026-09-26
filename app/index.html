@@ -1059,6 +1059,8 @@
              zoom:1, px:1, cx:0, cy:0, offX:0, offY:0};
 
   var MIN_ZOOM = 0.3, MAX_ZOOM = 60;
+  //: Room for an order label at a ray tip, in CSS pixels.
+  var LABEL_PAD = 30;
 
   /**
    * The part of the stage nothing is sitting on top of, in canvas pixels.
@@ -1153,9 +1155,13 @@
       if(f[1]<lo1) lo1=f[1]; if(f[1]>hi1) hi1=f[1];
     }
     var halfX = Math.max(1e-6, (hi0-lo0)/2), halfY = Math.max(1e-6, (hi1-lo1)/2);
-    // 0.86, not 0.94: the bounds cover the geometry, and the ray labels are
-    // drawn outside it. At 0.94 the k-hat_i label clipped the right edge.
-    var fitPx = 0.86*Math.min(visW/(2*halfX), visH/(2*halfY));
+    // The bounds cover the geometry; the ray labels are drawn outside it, in
+    // text that does not scale. So reserve them in PIXELS rather than as a
+    // fraction -- a fraction has to be set for the worst case and then costs
+    // the same proportion on a large screen, which is where it was leaving the
+    // scene visibly small. LABEL_PAD is about one label wide.
+    var fitPx = Math.min((visW - 2*LABEL_PAD)/(2*halfX),
+                         (visH - 2*LABEL_PAD)/(2*halfY));
     var fitX = -(lo0+hi0)/2, fitY = -(lo1+hi1)/2;
 
     // Rim focus: the rim circle across ~62% of the short side, centred on it.
