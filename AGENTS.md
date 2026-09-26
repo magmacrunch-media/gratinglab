@@ -78,6 +78,54 @@ Two signs are load-bearing and neither is obvious:
   transmitted wave decays. The other branch grows with depth and gives a
   reflectivity above one.
 
+## Running it on the iOS simulator
+
+The Mac build host is `ssh jakemccoy@100.81.70.91` (the IP, not the hostname).
+Xcode is installed but `xcode-select` points at the Command Line Tools, so
+`xcodebuild` and `simctl` both fail out of the box. Repointing it globally needs
+`sudo`; export the variable instead and change nothing on that machine:
+
+```bash
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+```
+
+There is no `ios/` project here yet, so the way to see the page on a phone is to
+serve `app/` on the Mac and open it in the simulator's Safari:
+
+```bash
+scp app/index.html jakemccoy@100.81.70.91:/tmp/glserve/index.html
+# on the Mac, with DEVELOPER_DIR set:
+xcrun simctl openurl booted "http://127.0.0.1:8799/index.html"
+xcrun simctl io booted screenshot /tmp/shot.png
+```
+
+**Three real bugs came out of doing this, none visible on a desktop browser:**
+
+- **No viewport meta.** Mobile Safari then lays out at its default 980px, the
+  `min-width:900px` desktop breakpoint fires on a phone, and the rail sits beside
+  the stage scaled to illegibility. The published Artifact hides this because the
+  Artifact skeleton injects a viewport meta of its own; a real bundle serves this
+  file directly and would have shipped broken.
+- **`.thesis div` outranked `.narrow-hide`** (0,1,1 against 0,1,0), so the
+  phone-only hide never applied and the stats sat on top of the title.
+- **The rail is a flex column, and flex children shrink before a container
+  overflows.** 1281px of controls compressed into a 386px rail: buttons 28px tall
+  rendered at 14, every row squashed, `overflow-y:auto` never engaging. It looks
+  exactly like clipping and is not. `#rail > *{flex:0 0 auto}` is the fix.
+
+That last one survived two wrong guesses. **Measure before changing CSS**: append
+a fixed overlay that prints `getBoundingClientRect()` for the suspect elements and
+screenshot it in the simulator. `tools/` deliberately does not carry that script,
+because it is a debugging move rather than part of the build — but write it with
+an editor, never a bash heredoc, or the JS newline escapes become real newlines,
+every string literal comes out unterminated, and the block dies silently. That
+happened here too; see `dev/CLAUDE.md`, "Windows gotchas".
+
+`vh` is *not* the culprit for the rail, though it was worth fixing anyway: iOS
+resolves it against the largest viewport, the one with the URL bar hidden, so the
+layout is taller than what you can see. `dvh` with a `100%` fallback, and a flex
+percentage split rather than `44vh` + `52vh`.
+
 ## Transmission is a branch, not a second grating equation
 
 `conventions.md` §4 is explicit: a transmitted order keeps the **same** equation

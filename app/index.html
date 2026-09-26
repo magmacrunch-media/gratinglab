@@ -1,4 +1,9 @@
 <meta charset="utf-8">
+<!-- Without this, mobile Safari lays the page out at its default 980px and
+     the >=900px desktop breakpoint fires on a phone: the rail sits beside the
+     stage, scaled down to illegibility. viewport-fit=cover is what lets
+     env(safe-area-inset-*) report real numbers. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cone of Diffraction</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -32,6 +37,11 @@
   #app{
     height:100%; display:flex; flex-direction:column;
   }
+  /* iOS resolves vh and 100% against the LARGEST viewport, the one with the
+     URL bar hidden, so a layout sized that way is taller than what you can
+     actually see and the rail's first row ends up clipped. dvh is the visible
+     one; the 100% above stays as the fallback. */
+  @supports (height: 100dvh){ #app{height:100dvh;} }
   #left{flex:1 1 auto; display:flex; flex-direction:column; min-height:0;}
   #striphost{
     flex:0 0 auto; background:#070c14; border-top:1px solid var(--rule);
@@ -39,7 +49,7 @@
   #strip{display:block; width:100%; height:178px;}
   /* -- stage ---------------------------------------------------------- */
   #stage{
-    position:relative; flex:1 1 auto; min-height:44vh;
+    position:relative; flex:1 1 auto; min-height:0;
     background:
       radial-gradient(120% 90% at 50% 12%, #16203300 0%, #070b12 100%),
       var(--ground);
@@ -100,7 +110,13 @@
   /* -- controls -------------------------------------------------------- */
   #rail{
     flex:0 0 auto; background:var(--panel); border-top:1px solid var(--rule);
-    display:flex; flex-direction:column; gap:0; max-height:52vh; overflow-y:auto;
+    display:flex; flex-direction:column; gap:0; overflow-y:auto;
+  }
+  /* A flex column shrinks its children before it overflows, so on a phone the
+     whole rail compressed into its box -- 1281px of content squeezed into
+     386, buttons 28px tall rendered at 14 -- and overflow-y never engaged.
+     It reads as clipping and is not. Pin the children and the rail scrolls. */
+  #rail > *{flex:0 0 auto;
   }
   .views{
     display:flex; gap:6px; padding:12px 16px; border-bottom:1px solid var(--rule);
@@ -178,7 +194,23 @@
   td.bar{padding-left:10px;}
   .track{height:6px; background:#1b2436; border-radius:2px; overflow:hidden;}
   .fill{height:100%; border-radius:2px; transition:width .18s ease;}
-  @media (max-width:559px){ .narrow-hide{display:none;} }
+  /* Phone. `.thesis div` is (0,1,1) and `.narrow-hide` was (0,1,0), so the
+     hide never fired and the stats sat on top of the title -- scope it into
+     .thesis to outrank the flex rule rather than reaching for !important. */
+  @media (max-width:559px){
+    .thesis .narrow-hide{display:none;}
+    .stamp p{display:none;}
+    /* Two absolutely-positioned corners cannot share 400pt. Drop the thesis to
+       its own full-width row under the title instead of overlapping it. */
+    .thesis{
+      top:36px; left:16px; right:16px; gap:12px;
+      justify-content:space-between; text-align:left;
+    }
+    .thesis .v{font-size:15px;}
+    /* Sticky inside the rail is a desktop affordance; on a phone the rail is a
+       short scroller and the pinned row clipped its own buttons. */
+    .views{position:static;}
+  }
   .more{margin:8px 0 0; font-size:10.5px; color:var(--ink-faint); font-family:"IBM Plex Mono",ui-monospace,monospace;}
 
   /* -- provenance: a validity limit and an expected deviation must not
@@ -211,6 +243,12 @@
     background:var(--blaze); margin-left:6px; vertical-align:2px;
   }
   .vflag.on{display:inline-block;}
+
+  /* Split the viewport by flex rather than by vh, for the reason above. */
+  @media (max-width:899px){
+    #left{flex:1 1 50%; min-height:0;}
+    #rail{flex:1 1 50%; min-height:0;}
+  }
 
   @media (min-width:900px){
     #app{flex-direction:row;}
