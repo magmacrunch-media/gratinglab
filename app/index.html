@@ -91,7 +91,10 @@
   .thesis .v, .thesis .k{text-shadow:0 0 10px var(--ground), 0 0 4px var(--ground);}
   .thesis .k{font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint);}
   .thesis .v{font-size:19px; color:var(--ink); line-height:1;}
-  .thesis .v.fan{color:var(--order);}
+  .thesis .v.over{color:var(--blaze);}
+  /* The configuration, live. With the sheet closed none of it is visible
+     anywhere else, and it is what you would write under a plot. */
+  #config{color:var(--ink-dim); font-size:11.5px; letter-spacing:.01em;}
   .caption{
     position:absolute; left:calc(16px + var(--sal)); right:calc(16px + var(--sar));
     bottom:calc(58px + var(--sab)); pointer-events:none;
@@ -273,8 +276,7 @@
      hide never fired and the stats sat on top of the title -- scope it into
      .thesis to outrank the flex rule rather than reaching for !important. */
   @media (max-width:559px){
-    .thesis .narrow-hide{display:none;}
-    .stamp p{display:none;}
+    #stamp-sub{display:none;}
     /* Two absolutely-positioned corners cannot share 400pt. Drop the thesis to
        its own full-width row under the title instead of overlapping it. */
     .thesis{
@@ -328,7 +330,7 @@
      both cost about a third of the usable height there, and viewRect() honours
      whatever they take. The provenance panel carries the same statements. */
   @media (max-height: 540px){
-    .stamp p{display:none;}
+    #stamp-sub{display:none;}
     .caption{display:none;}
     .thesis .v{font-size:15px;}
     .thesis .k{font-size:9px;}
@@ -357,11 +359,11 @@
     <canvas id="sky"></canvas>
     <div class="stamp">
       <h1>Cone of Diffraction</h1>
-      <p id="stamp-sub">extreme off-plane mount &middot; grazing incidence</p>
+      <p id="stamp-sub">extreme off-plane mount</p>
+      <p id="config">&mdash;</p>
     </div>
     <div class="thesis">
-      <div class="narrow-hide"><span class="k">polar spread</span><span class="v" id="t-polar">0.00&deg;</span></div>
-      <div><span class="k">azimuth fan</span><span class="v fan" id="t-fan">93.8&deg;</span></div>
+      <div><span class="k">&lambda; / p sin &gamma;</span><span class="v" id="t-ratio">&mdash;</span></div>
       <div><span class="k">&Sigma; E</span><span class="v"><span id="t-sum">&mdash;</span><span class="vflag" id="t-flag"></span></span></div>
     </div>
     <p class="caption" id="cap"></p>
@@ -1585,8 +1587,21 @@
 
   function paintReadout(sc){
     paintRatio();
-    document.getElementById("t-polar").textContent = "0.00°";
-    document.getElementById("t-fan").textContent = sc.live>1 ? fmt(sc.fan,1)+"°" : "—";
+    // Grooves per mm, not a period in nm: it is what gratings are specified
+    // and ordered by, and 3173 is recognisable where 315.15 is not.
+    document.getElementById("config").textContent =
+      fmt(1e6/S.period,0) + " \u2113/mm  \u00b7  \u03b3 " + fmt(S.gamma,2) + "\u00b0"
+      + "  \u00b7  \u03b1 " + fmt(S.alpha,1) + "\u00b0"
+      + "  \u00b7  \u03bb " + fmt(S.lambda,2) + " nm"
+      + "  \u00b7  \u03b4 " + fmt(S.blaze,1) + "\u00b0";
+
+    // The reduced ratio: the physical scale of the problem, and the thing
+    // gratinglab's validity guard watches. Amber past 0.1 for the same
+    // reason the provenance entry is.
+    var ratio = bandRange()[1]/(S.period*Math.sin(S.gamma*RAD));
+    var rEl = document.getElementById("t-ratio");
+    rEl.textContent = fmt(ratio,3);
+    rEl.classList.toggle("over", ratio > REDUCED_RATIO_WARN);
 
     var mag = CAM.mag;
     var rv = document.getElementById("reveal");
