@@ -120,7 +120,11 @@
   /* The bar spans the full width, but only its controls should take input:
      a finger landing on the empty gradient used to be swallowed, and a
      two-finger gesture that loses one finger degrades to an orbit. */
+  /* Two lines on a phone: the angles take the first, everything else the
+     second. viewRect() measures this whole box, so the scene gives way to it
+     rather than hiding behind it. */
   #toolbar{
+    flex-wrap:wrap; row-gap:2px;
     pointer-events:none;
     position:absolute; left:0; right:0; bottom:0; z-index:3;
     display:flex; align-items:center; gap:12px;
@@ -133,7 +137,22 @@
     color:var(--ink); background:#16203399; border:1px solid var(--rule);
     border-radius:999px; padding:7px 14px; backdrop-filter:blur(8px);
   }
-  #sheetbtn, #recentre, #reveal{pointer-events:auto;}
+  #sheetbtn, #recentre, #reveal, .phys{pointer-events:auto;}
+  /* The two angles the cone is made of. Always present, never behind a tap. */
+  .phys{
+    display:flex; align-items:center; gap:9px;
+    flex:1 1 168px; min-width:0;
+  }
+  .phys label{
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:13px;
+    color:var(--ink-dim); width:12px; text-align:center;
+  }
+  .phys input[type=range]{flex:1 1 auto; min-width:44px;}
+  .phys .val{
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11.5px;
+    color:var(--ink); font-variant-numeric:tabular-nums;
+    width:54px; text-align:right;
+  }
   #sheetbtn:hover{border-color:#3a4864;}
   /* Only offered once there is something to undo: free pan and zoom can lose
      the scene, and nothing else in the toolbar puts it back. */
@@ -374,6 +393,16 @@
       <canvas id="strip"></canvas>
     </div>
     <div id="toolbar">
+      <div class="phys">
+        <label for="k-gamma">&gamma;</label>
+        <input type="range" id="k-gamma" min="0" max="1000" value="0">
+        <span class="val" id="v-gamma"></span>
+      </div>
+      <div class="phys">
+        <label for="k-alpha">&alpha;</label>
+        <input type="range" id="k-alpha" min="-800" max="800" value="250">
+        <span class="val" id="v-alpha"></span>
+      </div>
       <button type="button" id="sheetbtn" aria-expanded="false"
               aria-controls="sheet">Controls</button>
       <div id="reveal">
@@ -436,21 +465,11 @@
         <span class="val" id="v-coat"></span>
       </div>
       <div class="knob">
-        <span class="name">&gamma; half-cone</span>
-        <input type="range" id="k-gamma" min="0" max="1000" value="0">
-        <span class="val" id="v-gamma"></span>
-      </div>
-      <div class="knob">
         <span class="name">reduced</span>
         <div class="seg" id="sweepseg">
           <button type="button" id="sweep">sweep</button>
         </div>
         <span class="val" id="v-ratio">&mdash;</span>
-      </div>
-      <div class="knob">
-        <span class="name">&alpha; azimuth</span>
-        <input type="range" id="k-alpha" min="-800" max="800" value="250">
-        <span class="val" id="v-alpha"></span>
       </div>
       <div class="knob">
         <span class="name">&lambda; wavelength</span>
@@ -832,11 +851,13 @@
       var s = sinBeta(i), p = propagating(s);
       marks.push({m:i, s:s, beta:p?Math.asin(s):null, prop:p, blaze:(i===bl)});
     }
-    var fan = 0;
-    if(live>1){
-      var b1 = Math.asin(Math.max(-1,Math.min(1,sinBeta(lo))));
-      var b2 = Math.asin(Math.max(-1,Math.min(1,sinBeta(hi))));
-      fan = Math.abs(b2-b1)*DEG;
+    // beta of the extreme propagating orders. Kept as the two angles they
+    // are, not as a span between them: the span is a number nobody asks a
+    // grating for, and the angles are what a detector is placed at.
+    var betaLo = null, betaHi = null;
+    if(live > 0){
+      betaLo = Math.asin(Math.max(-1,Math.min(1,sinBeta(lo))))*DEG;
+      betaHi = Math.asin(Math.max(-1,Math.min(1,sinBeta(hi))))*DEG;
     }
 
     // The integral is per order, so a scan with hundreds of them is not a
@@ -844,7 +865,8 @@
     var eff = null;
     if(live > 0 && live <= MAX_DRAWN) eff = scalarEfficiency(marks, null, null, true);
 
-    return {marks:marks, lo:lo, hi:hi, live:live, fan:fan, blaze:bl,
+    return {marks:marks, lo:lo, hi:hi, live:live,
+            betaLo:betaLo, betaHi:betaHi, blaze:bl,
             step:step, eff:eff, spec:spectrum()};
   }
 
@@ -960,15 +982,8 @@
              "thickness cannot be read as an efficiency."});
     }
     out.push({level:"note", mark:"\u25cb",
-      title:"polar spread 0.00\u00b0, azimuth fan " +
-            (sc.live > 1 ? fmt(sc.fan,1)+"\u00b0" : "\u2014"),
-      body:"Every diffracted order leaves at the same angle \u03b3 to the grooves, so "+
-           "they all lie on one cone and the spread in that angle is exactly zero \u2014 "+
-           "the cone is a needle, 1.5\u00b0 wide here. What separates the orders is "+
-           "where each sits AROUND the cone, its azimuth \u03b2. The fan is the angle "+
-           "from the first propagating order to the last, measured around the rim. So "+
-           "the orders are spread a quarter turn apart while never leaving a needle, "+
-           "and a detector has to sweep an ARC rather than a line to find them."});
+      title:"all orders on one cone of half-angle \u03b3",
+      body:"Light arrives almost along the grooves, so every diffracted order leaves at the same angle \u03b3 to the groove axis and they all lie on one cone. What separates them is \u03b2, their direction around that cone, which is what the grating equation returns and what a detector is set to. In this mount the orders run from \u03b2 = " + (sc.betaLo!=null ? fmt(sc.betaLo,1)+"\u00b0" : "\u2014") + " to " + (sc.betaHi!=null ? fmt(sc.betaHi,1)+"\u00b0" : "\u2014") + ", which is why they land on an arc rather than a line."});
     var e = sc.eff;
     if(S.coating && sc.spec && sc.spec.outside > 0){
       out.push({level:"limit", mark:"!",
@@ -1191,7 +1206,7 @@
 
     // Roll spins the basis about the view axis. It is a third rotational
     // freedom the yaw/pitch orbit cannot reach, and it is what makes the
-    // azimuth fan lie flat on the screen instead of across a diagonal.
+    // orders lie flat across the screen instead of along a diagonal.
     if(S.roll){
       var cr = Math.cos(S.roll*RAD), sr = Math.sin(S.roll*RAD);
       var rr = [r[0]*cr + u[0]*sr, r[1]*cr + u[1]*sr, r[2]*cr + u[2]*sr];
@@ -1446,7 +1461,10 @@
         dotAt(k, col, 1.8 + 3.2*rel);
         if(wantLabel){
           ctx.save(); ctx.globalAlpha = labelAlpha;
-          label(k, tag, col, 8, -1, 11.5);
+          // With the rim in focus there is room for the angle itself, which
+          // is the number being looked for.
+          label(k, S.rim > 0.5 ? tag + "  " + fmt(mk.beta*DEG,1) + "\u00b0" : tag,
+                col, 8, -1, 11.5);
           ctx.restore();
           labelled++;
         }
@@ -1484,22 +1502,33 @@
       }
     }
 
-    // --- the fan arc, once the rim is in focus
-    if(S.rim > 0.25 && sc.live > 1 && CAM.rimUsable){
-      var a1 = Math.asin(Math.max(-1,Math.min(1,sinBeta(sc.lo))));
-      var a2 = Math.asin(Math.max(-1,Math.min(1,sinBeta(sc.hi))));
-      var arc=[], N=64;
-      for(i=0;i<=N;i++){
-        var bb = a1 + (a2-a1)*i/N;
-        arc.push([sg*Math.sin(bb)*1.0, sg*Math.cos(bb)*1.0, cg]);
-      }
-      ctx.save(); ctx.globalAlpha = Math.min(1,(S.rim-0.25)/0.25);
-      poly(arc, "#ffffff", 1, 0.55);
-      var midb = (a1+a2)/2;
-      label([sg*Math.sin(midb)*1.0, sg*Math.cos(midb)*1.0, cg],
-            sc.fan.toFixed(1)+"° fan", "#e6ecf8", -18, -16, 11.5);
-      ctx.restore();
+    // --- gamma, the cone's opening half-angle, which is the thing that
+    //     defines it. Drawn between the cone axis and a generator at true
+    //     scale: at 1.5 degrees it is nearly a closed pair of lines, and
+    //     that is the fact this view exists to show.
+    var GR = 0.38, gam = S.gamma*RAD, arc = [];
+    line(O, [0,0,GR], "#6b7794", 1, [4,4], 0.55);
+    line(O, [0, GR*Math.sin(gam), GR*Math.cos(gam)], "#6b7794", 1, [4,4], 0.55);
+    for(i=0;i<=24;i++){
+      var gt = gam*i/24;
+      arc.push([0, GR*Math.sin(gt), GR*Math.cos(gt)]);
     }
+    poly(arc, "#8b97b0", 1.3, 0.9);
+    label([0, GR*Math.sin(gam/2), GR*Math.cos(gam/2)],
+          "\u03b3 " + fmt(S.gamma,2) + "\u00b0", "#b9c4da", 11, -7, 11.5);
+
+    // alpha, the azimuth of incidence, measured from n-hat toward d-hat in the
+    // plane across the grooves. gamma opens the cone; alpha turns the light
+    // around it, and between them they are the whole mount.
+    var AR = 0.30, alp = S.alpha*RAD, aarc = [];
+    line(O, [AR*Math.sin(alp), AR*Math.cos(alp), 0], "#6b7794", 1, [4,4], 0.55);
+    for(i=0;i<=24;i++){
+      var at = alp*i/24;
+      aarc.push([AR*Math.sin(at), AR*Math.cos(at), 0]);
+    }
+    poly(aarc, "#8b97b0", 1.3, 0.9);
+    label([AR*Math.sin(alp/2), AR*Math.cos(alp/2), 0],
+          "\u03b1 " + fmt(S.alpha,1) + "\u00b0", "#b9c4da", 10, -6, 11.5);
 
     paintReadout(sc);
     drawStrip(sc);
@@ -1910,7 +1939,7 @@
   // One press walks gamma between the two mounts so the morph can be watched
   // rather than inferred. At 90° the cone of diffraction is a flat plane and
   // the orders spread across it in their hundreds; closing it to 1.5° collapses
-  // the same picture to a needle with a handful of orders on a 93.8° fan. The
+  // the same picture to a needle with a handful of orders spread around it. The
   // header readouts already tell that story, so nothing new is drawn.
   //
   // Interpolation runs in SLIDER space, not in gamma. The knob's mapping is
