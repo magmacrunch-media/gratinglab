@@ -140,6 +140,36 @@ There is a dark-appearance variant because from iOS 18 the system dims a light
 icon on a dark home screen, which takes gold towards brown. It is drawn on a
 deeper ground with a brighter band.
 
+## The launch screen
+
+`python ios/tools/make-splash.py` writes the three square files Capacitor's
+imageset names; `--crops out.png` renders what each device actually shows. It
+needs Pillow, and a website checkout for the publisher mark -- the only thing in
+this repo that does, and deliberately not `ios/package.mjs`.
+
+**Both axes crop here, which is the difference from every other app in the
+tree.** `LaunchScreen.storyboard` aspect-fills one square, so the view's shorter
+side decides how much survives on that axis: a portrait view keeps `W/H` of the
+width, a landscape view keeps `H/W` of the height. `Info.plist` allows portrait
+*and* both landscapes on the phone, so both happen, and both at 0.460. crunchscope
+is portrait-only and therefore only ever loses width.
+
+So anything that must be seen lives in the central 46% square. The grating band
+and the rays run past it and get cut, which is what they do in the app too; the
+mark does not, and `draw_splash()` asserts it rather than trusting the eye.
+
+`CROP_WIDTH` and `CROP_HEIGHT` are module-level constants because
+`hypnopompia/tools/check-launch-crop.mjs` reads those names and ties them to the
+orientations in `Info.plist`. Run it after any change to either:
+
+```bash
+node ../../engines/hypnopompia/tools/check-launch-crop.mjs ../../apps/gratinglab/ios
+```
+
+That is also why this script sits in `ios/tools/` while `make-icon.py` sits in
+`scripts/`: the checker's contract names `ios/tools/`, and being covered by an
+existing guard beat keeping the two scripts together.
+
 ## Running it on the iOS simulator
 
 The Mac build host is `ssh jakemccoy@100.81.70.91` (the IP, not the hostname).
