@@ -85,3 +85,38 @@ jobs:
             exit 1
           fi
           echo "no network references in the shipped bundle"
+
+      # THE ZIP A TESTER INSTALLS, and the manifest describing it. Packaged by
+      # the shell rather than here: hypnopompia is already checked out beside
+      # this repo, four projects need the identical archive, naming and
+      # manifest, and its header explains the ditto-not-zip and
+      # read-it-out-of-the-bundle decisions.
+      #
+      # The artifact is for hypnopompia's deploy-sim.mjs, which puts the zip on
+      # an unlisted page on the Pi. That page rather than a release asset
+      # because an Actions artifact needs a signed-in GitHub account to download
+      # EVEN FROM A PUBLIC REPOSITORY, and a tester with a Mac and no GitHub
+      # login is the case it exists for. This repo going public on 2026-09-26
+      # does not change that; it only means a release asset is now an option
+      # here, as it already was for the two games.
+      #
+      # Note the build id names THIS repo's sha, the app half; the jamccoy
+      # package is not involved in an iOS build and tools/fixture.json is what
+      # holds the port to it.
+      - name: Package the simulator app
+        run: |
+          node hypnopompia/tools/package-sim.mjs \
+            --app "$RUNNER_TEMP/derived/Build/Products/Debug-iphonesimulator/App.app" \
+            --out "$RUNNER_TEMP/sim" \
+            --repo gratinglab \
+            --name gratinglab
+
+      - name: Upload the simulator app
+        uses: actions/upload-artifact@v7
+        with:
+          name: gratinglab-sim
+          path: ${{ runner.temp }}/sim
+          if-no-files-found: error
+          retention-days: 14
+          # Already compressed; compressing it again only costs time.
+          compression-level: 0
