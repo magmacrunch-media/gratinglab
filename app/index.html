@@ -99,11 +99,26 @@
     color:var(--ink-faint); line-height:1.55;
   }
   .caption b{color:var(--ink-dim); font-weight:400;}
+  /* Visible only while fingers are down. Two-finger gestures are invisible
+     otherwise: there is no way to tell "the browser kept it" from "one finger
+     landed on something that swallowed it". */
+  #gesture-hint{
+    position:absolute; left:50%; transform:translateX(-50%);
+    bottom:calc(64px + var(--sab)); z-index:4; pointer-events:none;
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
+    letter-spacing:.08em; color:var(--ink-dim);
+    background:#0b1018cc; border:1px solid var(--rule); border-radius:999px;
+    padding:5px 12px; backdrop-filter:blur(6px);
+  }
   /* the dispersion strip takes the bottom of the stage when a band is open */
   #stage.hasstrip .caption{bottom:calc(216px + var(--sab));}
 
   /* -- rim reveal ------------------------------------------------------ */
+  /* The bar spans the full width, but only its controls should take input:
+     a finger landing on the empty gradient used to be swallowed, and a
+     two-finger gesture that loses one finger degrades to an orbit. */
   #toolbar{
+    pointer-events:none;
     position:absolute; left:0; right:0; bottom:0; z-index:3;
     display:flex; align-items:center; gap:12px;
     padding:9px calc(16px + var(--sar)) 9px calc(16px + var(--sal));
@@ -115,6 +130,7 @@
     color:var(--ink); background:#16203399; border:1px solid var(--rule);
     border-radius:999px; padding:7px 14px; backdrop-filter:blur(8px);
   }
+  #sheetbtn, #recentre, #reveal{pointer-events:auto;}
   #sheetbtn:hover{border-color:#3a4864;}
   /* Only offered once there is something to undo: free pan and zoom can lose
      the scene, and nothing else in the toolbar puts it back. */
@@ -351,6 +367,7 @@
     <div id="striphost" hidden>
       <canvas id="strip"></canvas>
     </div>
+    <div id="gesture-hint" hidden></div>
     <div id="toolbar">
       <button type="button" id="sheetbtn" aria-expanded="false"
               aria-controls="sheet">Controls</button>
@@ -1906,6 +1923,18 @@
     return out;
   }
 
+  function showHint(){
+    var el = document.getElementById("gesture-hint");
+    var k = contacts.size;
+    if(!k){ el.hidden = true; return; }
+    var what = k === 1 ? "orbit"
+      : (gesture && gesture.zoomOn ? "zoom" : "") +
+        (gesture && gesture.rollOn ? (gesture.zoomOn ? " + roll" : "roll") : "") ||
+        "pan";
+    el.textContent = k + (k === 1 ? " finger " : " fingers ") + "\u00b7 " + what;
+    el.hidden = false;
+  }
+
   function rebaseline(){
     var ps = points();
     if(ps.length === 1){
@@ -1965,11 +1994,18 @@
     g.uz = S.uz; g.upx = S.upx; g.upy = S.upy; g.roll = S.roll;
   }
 
+  /** A control takes its own input; everything else is the viewer's. */
+  function onControl(e){
+    return !!(e.target.closest("#sheet") || e.target.closest("button")
+              || e.target.closest("input") || e.target.closest("label"));
+  }
+
   stage.addEventListener("pointerdown", function(e){
-    if(e.target.closest("#toolbar") || e.target.closest("#sheet")) return;
+    if(onControl(e)) return;
     contacts.set(e.pointerId, local(e));
     tapDown(e);
     rebaseline();
+    showHint();
     stage.classList.add("dragging");
     try{ stage.setPointerCapture(e.pointerId); }catch(_){}
   });
@@ -2010,6 +2046,7 @@
 
       zoomAbout(g.cx, g.cy, ncx, ncy, S.uz/g.uz, g);
     }
+    showHint();
     draw();
   });
 
@@ -2018,6 +2055,7 @@
     contacts.delete(e.pointerId);
     tapUp();
     rebaseline();
+    showHint();
     if(!contacts.size) stage.classList.remove("dragging");
     try{ stage.releasePointerCapture(e.pointerId); }catch(_){}
   }
@@ -2025,7 +2063,7 @@
   stage.addEventListener("pointercancel", release);
 
   stage.addEventListener("wheel", function(e){
-    if(e.target.closest("#toolbar") || e.target.closest("#sheet")) return;
+    if(onControl(e)) return;
     e.preventDefault();
     var p = local(e);
     var before = {upx:S.upx, upy:S.upy}, was = S.uz;
@@ -2061,7 +2099,7 @@
   }
 
   stage.addEventListener("dblclick", function(e){
-    if(e.target.closest("#toolbar") || e.target.closest("#sheet")) return;
+    if(onControl(e)) return;
     recentre();
   });
   function recentre(){
