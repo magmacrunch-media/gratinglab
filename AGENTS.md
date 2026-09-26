@@ -119,6 +119,39 @@ xcrun simctl install booted ~/glbuild/dd/Build/Products/Debug-iphonesimulator/Ap
 xcrun simctl launch booted com.magmacrunch.gratinglab
 ```
 
+## The viewer
+
+One finger orbits, two pinch and pan together, the wheel zooms about the cursor,
+and Recentre (or a double tap) clears the free transform. `S.uz/upx/upy` sit on
+top of the fitted framing; the rim slider and the fit decide everything else, so
+Recentre never disturbs the orbit or the rim.
+
+Three things here are not obvious and all three were found by driving synthetic
+`PointerEvent`s at the stage and reading back what the page displays:
+
+- **Rebaseline on every change in contact count.** Written off a single
+  remembered start point, the scene jumps the instant a second finger lands or
+  the first lifts.
+- **Clamp the zoom first, then pan by the factor actually applied.** Using the
+  requested factor makes the content slide out from under the fingers at the
+  limits.
+- **Two fingers lifting are two `pointerup`s a few milliseconds apart.** A naive
+  "was the last up recent" double-tap test fires at the end of every pinch and
+  throws the zoom away. A tap has to be one contact, brief and still, which is
+  what `tapDown/tapMove/tapUp` enforce.
+
+`viewRect()` is the other half. It measures the overlays rather than assuming
+their size, because they are drawn *over* the canvas -- so the geometric centre
+of the canvas is not the centre of what you can see, and centring on it put the
+scene behind the title block. **Take a rect only when it has a size**: a
+`display:none` element reports zeros, not nothing, and hiding the caption on a
+short screen once pulled the bottom edge to -8 and floored the whole view box at
+80px, making the scene smaller for being given more room.
+
+On a short screen the caption and the subtitle are hidden. They cost about a
+third of the usable height in landscape, and the provenance panel carries the
+same statements.
+
 ## The app icon
 
 `python scripts/make-icon.py` writes both appearances into the icon set; it

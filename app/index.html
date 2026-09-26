@@ -114,6 +114,15 @@
     border-radius:999px; padding:7px 14px; backdrop-filter:blur(8px);
   }
   #sheetbtn:hover{border-color:#3a4864;}
+  /* Only offered once there is something to undo: free pan and zoom can lose
+     the scene, and nothing else in the toolbar puts it back. */
+  #recentre{
+    flex:0 0 auto; appearance:none; cursor:pointer; font:inherit; font-size:12px;
+    color:var(--blaze); background:#2a200899; border:1px solid #6d4a0c;
+    border-radius:999px; padding:7px 12px; backdrop-filter:blur(8px);
+  }
+  #recentre:hover{background:#3a2c0acc;}
+  #recentre:focus-visible{outline:2px solid var(--order); outline-offset:2px;}
   #reveal{display:flex; align-items:center; gap:10px; flex:1 1 auto; min-width:0;}
   #reveal label{
     font-size:10px; letter-spacing:.12em; text-transform:uppercase;
@@ -295,6 +304,17 @@
   /* Landscape, and any wide window: the sheet comes in from the side instead,
      so it never covers the middle of the picture. This is the case the phone
      needs most -- in landscape a bottom sheet would leave almost nothing. */
+  /* A short screen -- a phone in landscape -- has no height to spend on
+     explanation. The caption is a disclaimer and the subtitle is decoration;
+     both cost about a third of the usable height there, and viewRect() honours
+     whatever they take. The provenance panel carries the same statements. */
+  @media (max-height: 540px){
+    .stamp p{display:none;}
+    .caption{display:none;}
+    .thesis .v{font-size:15px;}
+    .thesis .k{font-size:9px;}
+  }
+
   @media (min-aspect-ratio: 1/1) and (min-width: 560px){
     #sheet{
       left:auto; top:0; bottom:0; max-height:none;
@@ -337,6 +357,8 @@
         <input type="range" id="rim" min="0" max="1000" value="0">
         <span class="mag" id="magv">1.0&times;</span>
       </div>
+      <button type="button" id="recentre" hidden
+              title="Put the view back (or double tap)">Recentre</button>
     </div>
   </div>
 
@@ -461,6 +483,9 @@
   var S = {
     period:315.15, alpha:25, gamma:1.5, lambda:3, blaze:29.5, band:0, coating:true,
     branch:"R", reflModel:"local",
+    // The free transform, applied over the fitted framing. Reset by Recentre
+    // and by a double tap; the fit and the rim slider decide everything else.
+    uz:1, upx:0, upy:0,
     yaw:26.6, pitch:20.4, rim:0, spin:0
   };
 
@@ -1033,6 +1058,55 @@
   var CAM = {right:[1,0,0], up:[0,1,0], fwd:[0,0,-1], target:[0,0,0],
              zoom:1, px:1, cx:0, cy:0, offX:0, offY:0};
 
+  var MIN_ZOOM = 0.3, MAX_ZOOM = 60;
+
+  /**
+   * The part of the stage nothing is sitting on top of, in canvas pixels.
+   *
+   * Centring on the whole canvas put the scene behind the title block and the
+   * toolbar -- they are drawn over the canvas, not beside it, so the geometric
+   * centre of the canvas is not the centre of what you can see. Measured from
+   * the elements rather than from constants, so moving one cannot leave a
+   * number here quietly wrong.
+   */
+  function viewRect(){
+    var st = stage.getBoundingClientRect();
+    var x0 = 0, y0 = 0, x1 = W, y1 = H;
+
+    if(sheet && sheet.classList.contains("open")){
+      var sb = sheet.getBoundingClientRect();
+      if(sb.width < W - 8) x1 = Math.min(x1, sb.left - st.left);
+      else y1 = Math.min(y1, sb.top - st.top);
+    }
+    if(!host.hidden) y1 = Math.min(y1, host.getBoundingClientRect().top - st.top);
+
+    // A display:none element reports a zero rect, not "no rect". Hiding the
+    // caption on a short screen therefore pulled y1 to -8 and the clamp below
+    // floored the whole box at 80px tall -- the scene got SMALLER for being
+    // given more room. Take a rect only when it has a size.
+    function box(sel){
+      var el = typeof sel === "string" ? document.querySelector(sel) : sel;
+      if(!el) return null;
+      var r = el.getBoundingClientRect();
+      return (r.width > 0 && r.height > 0) ? r : null;
+    }
+
+    var head = [box(".stamp"), box(".thesis")].filter(Boolean);
+    for(var h=0; h<head.length; h++){
+      y0 = Math.max(y0, head[h].bottom - st.top + 10);
+    }
+    // The caption when it is shown, the toolbar always: both are chrome drawn
+    // over the canvas, and on a short screen only the toolbar remains.
+    var foot = [box("#cap"), box("#toolbar")].filter(Boolean);
+    for(var f=0; f<foot.length; f++){
+      y1 = Math.min(y1, foot[f].top - st.top - 8);
+    }
+
+    if(x1 - x0 < 80) x1 = x0 + 80;
+    if(y1 - y0 < 80) y1 = y0 + 80;
+    return {x0:x0, y0:y0, x1:x1, y1:y1};
+  }
+
   // Every point the scene can reach, so the frame can be fitted to what is
   // actually drawn rather than to a radius that assumes the worst case.
   function extremes(){
@@ -1064,19 +1138,10 @@
     CAM.fwd=f; CAM.right=r; CAM.up=u;
 
     CAM.target = [0,0,0];
-    // Centre on the visible stage, not the whole canvas: the sheet and the
-    // dispersion strip cover part of it, and a scene centred behind either is
-    // a control you cannot watch while you use it.
-    var coverB = 0, coverR = 0;
-    if(sheet && sheet.classList.contains("open")){
-      var sb = sheet.getBoundingClientRect();
-      if(sb.width < W - 8) coverR = Math.max(0, W - sb.left);
-      else coverB = Math.max(0, H - sb.top);
-    }
-    if(!host.hidden) coverB = Math.max(coverB, host.getBoundingClientRect().height + 54);
-    var visW = Math.max(80, W - coverR), visH = Math.max(80, H - coverB);
-    CAM.cx = visW/2;
-    CAM.cy = visH/2;
+    var vr = viewRect();
+    var visW = vr.x1 - vr.x0, visH = vr.y1 - vr.y0;
+    CAM.cx = (vr.x0 + vr.x1)/2;
+    CAM.cy = (vr.y0 + vr.y1)/2;
 
     // Fit to the scene's own projected bounds. A fixed radius has to assume the
     // worst case from every angle, which on a phone left most of the frame
@@ -1102,10 +1167,11 @@
     var t = usable ? S.rim : 0;
     var ease = 1-(1-t)*(1-t);          // the centre settles ahead of the zoom
 
-    CAM.px = fitPx*Math.pow(usable ? mag : 1, t);
+    CAM.px = fitPx*Math.pow(usable ? mag : 1, t)*S.uz;
     CAM.offX = fitX + (-rimC[0] - fitX)*ease;
     CAM.offY = fitY + (-rimC[1] - fitY)*ease;
     CAM.zoom = CAM.px/fitPx;
+    CAM.fitPx = fitPx;
     CAM.rimUsable = usable;
     CAM.mag = mag;
   }
@@ -1115,8 +1181,8 @@
     var sx = v0*CAM.right[0]+v1*CAM.right[1]+v2*CAM.right[2];
     var sy = v0*CAM.up[0]+v1*CAM.up[1]+v2*CAM.up[2];
     var d  = v0*CAM.fwd[0]+v1*CAM.fwd[1]+v2*CAM.fwd[2];
-    return [CAM.cx + (sx + CAM.offX)*CAM.px,
-            CAM.cy - (sy + CAM.offY)*CAM.px, d];
+    return [CAM.cx + S.upx + (sx + CAM.offX)*CAM.px,
+            CAM.cy + S.upy - (sy + CAM.offY)*CAM.px, d];
   }
 
   // ---- drawing primitives -------------------------------------------
@@ -1151,6 +1217,17 @@
     if(stroke){ctx.strokeStyle=stroke; ctx.lineWidth=0.75; ctx.stroke();}
     ctx.restore();
   }
+  function fill3(points,color,alpha){
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for(var i=0;i<points.length;i++){
+      var p = proj(points[i]);
+      if(i===0) ctx.moveTo(p[0],p[1]); else ctx.lineTo(p[0],p[1]);
+    }
+    ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+
   function dotAt(pt,color,r){
     var p=proj(pt);
     ctx.save(); ctx.fillStyle=color;
@@ -1219,18 +1296,22 @@
     var sg = Math.sin(S.gamma*RAD), cg = Math.cos(S.gamma*RAD);
     var O=[0,0,0], L=1;
 
-    // --- cone surface: straight generators + rim circle
-    var NG = 72, i, j;
-    for(i=0;i<NG;i++){
-      var ph = i/NG*Math.PI*2;
-      line(O, [sg*Math.sin(ph)*L, sg*Math.cos(ph)*L, cg*L], "#3d4761", 1, null, 0.30);
-    }
-    var rimPts=[];
+    // --- the cone. Seventy-two generators read as hatching, not as a surface,
+    //     and at rim zoom they filled the frame with noise. The projected cone
+    //     is the fan from the apex over the rim, so fill that once and keep a
+    //     few generators for the sense of a ruled surface.
+    var i, j, rimPts = [], fan = [[0,0,0]];
     for(i=0;i<=160;i++){
-      var t=i/160*Math.PI*2;
+      var t = i/160*Math.PI*2;
       rimPts.push([sg*Math.sin(t), sg*Math.cos(t), cg]);
     }
-    poly(rimPts, "#6b7794", 1.25, 0.8);
+    fan = fan.concat(rimPts);
+    fill3(fan, "#2b3550", 0.10);
+    for(i=0;i<12;i++){
+      var ph = i/12*Math.PI*2;
+      line(O, [sg*Math.sin(ph)*L, sg*Math.cos(ph)*L, cg*L], "#4a5670", 1, null, 0.22);
+    }
+    poly(rimPts, "#6b7794", 1.25, 0.85);
 
     // --- axes
     var AX=0.42;
@@ -1520,6 +1601,8 @@
       S.branch === "R" ? "β" : S.branch === "T" ? "β (T)" : "β R / T";
     document.getElementById("t-sum").textContent =
       (sc.eff && showR()) ? fmt(sc.eff.sum,3) : "—";
+    document.getElementById("recentre").hidden =
+      S.uz === 1 && S.upx === 0 && S.upy === 0;
     paintProvenance(sc);
 
     document.getElementById("cap").innerHTML =
@@ -1783,35 +1866,144 @@
 
   paintSweepLabel();
 
-  // ---- orbit ----------------------------------------------------------
-  var drag=null;
+  // ---- direct manipulation --------------------------------------------
+  //
+  // One finger orbits, two pinch and pan together. The gesture is rebaselined
+  // whenever the number of contacts changes, which is what stops the scene
+  // jumping when a second finger lands or the first one lifts -- the usual way
+  // this is written, off a single remembered start point, snaps on every
+  // transition.
+  var contacts = new Map();
+  var gesture = null;
+
+  function points(){
+    var out = [];
+    contacts.forEach(function(p){ out.push(p); });
+    return out;
+  }
+
+  function rebaseline(){
+    var ps = points();
+    if(ps.length === 1){
+      gesture = {mode:"orbit", x:ps[0].x, y:ps[0].y, yaw:S.yaw, pitch:S.pitch};
+    }else if(ps.length >= 2){
+      var a = ps[0], b = ps[1];
+      gesture = {
+        mode:"pinch",
+        cx:(a.x + b.x)/2, cy:(a.y + b.y)/2,
+        dist:Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+        uz:S.uz, upx:S.upx, upy:S.upy,
+      };
+    }else{
+      gesture = null;
+    }
+  }
+
+  function local(e){
+    var r = stage.getBoundingClientRect();
+    return {x:e.clientX - r.left, y:e.clientY - r.top};
+  }
+
+  /**
+   * Zoom by `k` about a screen point, moving it to `to`.
+   *
+   * A point at screen s sits at world offset w = (s - centre - pan)/px, and
+   * both axes reduce to the same form once the y flip is folded in, which is
+   * why there is one expression here rather than two.
+   */
+  function zoomAbout(fromX, fromY, toX, toY, k, base){
+    S.upx = toX - CAM.cx - (fromX - CAM.cx - base.upx)*k;
+    S.upy = toY - CAM.cy - (fromY - CAM.cy - base.upy)*k;
+  }
+
+  function clampZoom(z){ return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z)); }
+
   stage.addEventListener("pointerdown", function(e){
-    if(e.target.closest("#reveal")) return;
-    drag={x:e.clientX, y:e.clientY, yaw:S.yaw, pitch:S.pitch};
+    if(e.target.closest("#toolbar") || e.target.closest("#sheet")) return;
+    contacts.set(e.pointerId, local(e));
+    tapDown(e);
+    rebaseline();
     stage.classList.add("dragging");
-    stage.setPointerCapture(e.pointerId);
+    try{ stage.setPointerCapture(e.pointerId); }catch(_){}
   });
+
   stage.addEventListener("pointermove", function(e){
-    if(!drag) return;
-    S.yaw = drag.yaw + (e.clientX-drag.x)*0.42;
-    S.pitch = Math.max(-88, Math.min(88, drag.pitch + (e.clientY-drag.y)*0.42));
+    if(!contacts.has(e.pointerId) || !gesture) return;
+    tapMove(e);
+    contacts.set(e.pointerId, local(e));
+    var ps = points();
+
+    if(gesture.mode === "orbit" && ps.length === 1){
+      S.yaw = gesture.yaw + (ps[0].x - gesture.x)*0.42;
+      S.pitch = Math.max(-88, Math.min(88, gesture.pitch + (ps[0].y - gesture.y)*0.42));
+    }else if(gesture.mode === "pinch" && ps.length >= 2){
+      var a = ps[0], b = ps[1];
+      var nd = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      var ncx = (a.x + b.x)/2, ncy = (a.y + b.y)/2;
+      // Clamp first, then use the factor that was actually applied, or the pan
+      // drifts away from the fingers at the limits.
+      S.uz = clampZoom(gesture.uz*(nd/gesture.dist));
+      zoomAbout(gesture.cx, gesture.cy, ncx, ncy, S.uz/gesture.uz, gesture);
+    }
     draw();
   });
-  function endDrag(e){
-    if(!drag) return;
-    drag=null; stage.classList.remove("dragging");
+
+  function release(e){
+    if(!contacts.has(e.pointerId)) return;
+    contacts.delete(e.pointerId);
+    tapUp();
+    rebaseline();
+    if(!contacts.size) stage.classList.remove("dragging");
     try{ stage.releasePointerCapture(e.pointerId); }catch(_){}
   }
-  stage.addEventListener("pointerup", endDrag);
-  stage.addEventListener("pointercancel", endDrag);
+  stage.addEventListener("pointerup", release);
+  stage.addEventListener("pointercancel", release);
 
   stage.addEventListener("wheel", function(e){
+    if(e.target.closest("#toolbar") || e.target.closest("#sheet")) return;
     e.preventDefault();
-    var next = S.rim + (e.deltaY<0 ? 0.045 : -0.045);
-    S.rim = Math.max(0, Math.min(1, next));
-    rimEl.value = S.rim*1000;
+    var p = local(e);
+    var before = {upx:S.upx, upy:S.upy}, was = S.uz;
+    S.uz = clampZoom(S.uz*Math.exp(-e.deltaY*0.0016));
+    zoomAbout(p.x, p.y, p.x, p.y, S.uz/was, before);
     draw();
   }, {passive:false});
+
+  // A double tap is how a touch screen says "put it back" -- but two fingers
+  // LIFTING are two pointerups a few milliseconds apart, and a naive
+  // last-up-was-recent test reads every pinch as a double tap and throws the
+  // zoom away the moment you finish it. A tap has to be one contact, brief,
+  // and still.
+  var lastTap = 0, tap = null;
+
+  function tapDown(e){
+    if(contacts.size === 1) tap = {x:local(e).x, y:local(e).y, t:Date.now(), ok:true};
+    else if(tap) tap.ok = false;          // a second finger: no longer a tap
+  }
+  function tapMove(e){
+    if(!tap || !tap.ok) return;
+    var p = local(e);
+    if(Math.hypot(p.x - tap.x, p.y - tap.y) > 8) tap.ok = false;
+  }
+  function tapUp(){
+    var was = tap;
+    tap = null;
+    if(!was || !was.ok || contacts.size !== 0) return;
+    if(Date.now() - was.t > 300) return;
+    var now = Date.now();
+    if(now - lastTap < 320){ recentre(); lastTap = 0; return; }
+    lastTap = now;
+  }
+
+  stage.addEventListener("dblclick", function(e){
+    if(e.target.closest("#toolbar") || e.target.closest("#sheet")) return;
+    recentre();
+  });
+  function recentre(){
+    S.uz = 1; S.upx = 0; S.upy = 0;
+    draw();
+  }
+  document.getElementById("recentre").addEventListener("click", recentre);
 
   // ---- the controls sheet ---------------------------------------------
   var sheet = document.getElementById("sheet");
