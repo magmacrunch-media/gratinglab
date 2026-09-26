@@ -216,6 +216,10 @@
     border-bottom:1px solid var(--rule);
   }
   .knob{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px;}
+  /* Hidden in the geometry view: a blaze angle, a coating and a reflectivity
+     model are all statements about a groove, and the cone of diffraction does
+     not have one. */
+  #app.geometry .eff-only{display:none;}
   .knob .name{
     font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px;
     color:var(--ink-dim); width:74px; letter-spacing:.02em;
@@ -364,7 +368,7 @@
     </div>
     <div class="thesis">
       <div><span class="k">&lambda; / p sin &gamma;</span><span class="v" id="t-ratio">&mdash;</span></div>
-      <div><span class="k">&Sigma; E</span><span class="v"><span id="t-sum">&mdash;</span><span class="vflag" id="t-flag"></span></span></div>
+      <div><span class="k" id="sumlabel">&Sigma; E</span><span class="v"><span id="t-sum">&mdash;</span><span class="vflag" id="t-flag"></span></span></div>
     </div>
     <p class="caption" id="cap"></p>
     <div id="striphost" hidden>
@@ -399,6 +403,14 @@
 
     <div class="knobs">
       <div class="knob">
+        <span class="name">view</span>
+        <div class="seg" id="modeseg">
+          <button type="button" data-v="geometry">geometry</button>
+          <button type="button" data-v="efficiency">efficiency</button>
+        </div>
+        <span class="val" id="v-mode"></span>
+      </div>
+      <div class="knob">
         <span class="name">orders</span>
         <div class="seg" id="branchseg">
           <button type="button" data-v="R">refl</button>
@@ -407,7 +419,7 @@
         </div>
         <span class="val" id="v-branch"></span>
       </div>
-      <div class="knob">
+      <div class="knob eff-only">
         <span class="name">R model</span>
         <div class="seg" id="modelseg">
           <button type="button" data-v="local">local</button>
@@ -416,7 +428,7 @@
         </div>
         <span class="val" id="v-model"></span>
       </div>
-      <div class="knob">
+      <div class="knob eff-only">
         <span class="name">coating</span>
         <div class="seg" id="coatseg">
           <button type="button" data-v="0">none</button>
@@ -456,7 +468,7 @@
         <input type="range" id="k-period" min="1000" max="12000" value="3152">
         <span class="val" id="v-period"></span>
       </div>
-      <div class="knob">
+      <div class="knob eff-only">
         <span class="name">&delta; blaze</span>
         <input type="range" id="k-blaze" min="0" max="450" value="295">
         <span class="val" id="v-blaze"></span>
@@ -469,7 +481,7 @@
     <div class="orders">
       <h2>Orders &middot; scalar efficiency</h2>
       <table>
-        <thead><tr><th>m</th><th id="bhead">&beta;</th><th>E</th><th class="barh"></th></tr></thead>
+        <thead><tr><th>m</th><th id="bhead">&beta;</th><th id="ehead">E</th><th class="barh"></th></tr></thead>
         <tbody id="obody"></tbody>
       </table>
       <p class="more" id="more"></p>
@@ -504,7 +516,7 @@
 
   var S = {
     period:315.15, alpha:25, gamma:1.5, lambda:3, blaze:29.5, band:0, coating:true,
-    branch:"R", reflModel:"local",
+    branch:"R", reflModel:"local", mode:"geometry",
     // The free transform, applied over the fitted framing. Reset by Recentre
     // and by a double tap; the fit and the rim slider decide everything else.
     uz:1, upx:0, upy:0, roll:0,
@@ -898,6 +910,8 @@
 
   // Which branches are on screen. Outside the physics block on purpose: this is
   // display state, and tools/check.mjs evaluates that block on its own.
+  //: The grating equation alone, or the groove model on top of it.
+  function geometryOnly(){ return S.mode === "geometry"; }
   function showR(){ return S.branch !== "T"; }
   function showT(){ return S.branch !== "R"; }
 
@@ -1310,6 +1324,7 @@
     // structure, so draw many and keep the tonal separation small; the patch
     // size against the rays was already a declared drawing choice.
     var GROOVES = 26;
+    if(geometryOnly()){ drawPlainGrating(fade); return; }
     var nm2u = PATCH_SPAN/(GROOVES*S.period);      // nm -> ray-length units
     var depth = S.period*Math.tan(S.blaze*RAD)*nm2u;
     var pu = S.period*nm2u;
@@ -1330,6 +1345,23 @@
       var f=faces[i];
       // the anti-blaze faces sit in shadow, not in a different material
       quad(f[0],f[1],f[2],f[3], i%2 ? "#1b3157" : "#294f86", null, 0.92*fade);
+    }
+  }
+
+  /**
+   * The grating as the grating equation knows it: a flat surface with grooves
+   * running along g-hat, and no claim about their cross-section. Everything the
+   * cone depends on is here -- the surface, the groove direction, the period is
+   * a number not a picture -- and nothing that is not.
+   */
+  function drawPlainGrating(fade){
+    var hx = PATCH_SPAN/2, hz = 0.17;
+    quad([-hx,0,-hz], [hx,0,-hz], [hx,0,hz], [-hx,0,hz], "#1b3157", "#2d5aa8", 0.55*fade);
+    // Grooves as lines on the surface: they run along g-hat, which is the one
+    // thing about them the cone actually cares about.
+    for(var i=1;i<14;i++){
+      var x = -hx + (2*hx)*i/14;
+      line([x,0,-hz], [x,0,hz], "#4a7fd0", 1, null, 0.5*fade);
     }
   }
 
@@ -1403,10 +1435,13 @@
 
       if(showR()){
         var k = kvec(mk.beta);
-        var col = mk.blaze ? "#ffc233" : (mk.m===0 ? "#95a2bb" : "#4dc4ff");
+        var col = (mk.blaze && !geometryOnly()) ? "#ffc233"
+                : (mk.m===0 ? "#95a2bb" : "#4dc4ff");
         // Ray weight IS the efficiency: sqrt so a weak order still reads as
         // present rather than vanishing, which would look like passing off.
-        var rel = (sc.eff && sc.eff.emax>0 && mk.eff!=null)
+        // In the geometry view every propagating order is equally real, so
+        // weighting them by an efficiency nobody asked for would be a claim.
+        var rel = (!geometryOnly() && sc.eff && sc.eff.emax>0 && mk.eff!=null)
           ? Math.sqrt(mk.eff/sc.eff.emax) : 0.62;
         line(O, k, col, 0.7 + 3.4*rel, null, 0.22 + 0.78*rel);
         dotAt(k, col, 1.8 + 3.2*rel);
@@ -1593,7 +1628,8 @@
       fmt(1e6/S.period,0) + " \u2113/mm  \u00b7  \u03b3 " + fmt(S.gamma,2) + "\u00b0"
       + "  \u00b7  \u03b1 " + fmt(S.alpha,1) + "\u00b0"
       + "  \u00b7  \u03bb " + fmt(S.lambda,2) + " nm"
-      + "  \u00b7  \u03b4 " + fmt(S.blaze,1) + "\u00b0";
+      + (geometryOnly() ? ""
+         : "  \u00b7  \u03b4 " + fmt(S.blaze,1) + "\u00b0");
 
     // The reduced ratio: the physical scale of the problem, and the thing
     // gratinglab's validity guard watches. Amber past 0.1 for the same
@@ -1635,6 +1671,7 @@
       var rel = (sc.eff && sc.eff.emax>0 && m.eff!=null && showR()) ? m.eff/sc.eff.emax : 0;
       // One sin beta, two branches. "both" prints them together because that
       // is the point: the same order propagates on both sides or on neither.
+      var geom = geometryOnly();
       var bcell = "evan.";
       if(m.prop){
         var both = S.branch === "both", dp = both ? 1 : 2;
@@ -1643,8 +1680,12 @@
               : S.branch === "T" ? bT+"°"
               : bR+" / "+bT;
       }
-      // Transmitted efficiency is not a number this model has; see provenance.
-      var ecell = (showR() && m.eff!=null) ? fmt(m.eff,4) : "—";
+      // In the geometry view the third column is the angle and the second
+      // is what the grating equation actually returns. Efficiency is not a
+      // number anything here has computed.
+      var ecell = geom ? bcell
+        : ((showR() && m.eff!=null) ? fmt(m.eff,4) : "\u2014");
+      if(geom) bcell = fmt(m.s,4);
       tr.innerHTML =
         '<td><span class="swatch" style="background:'+col+'"></span>'+(m.m>0?"+":"")+m.m+'</td>'+
         '<td>'+bcell+'</td>'+
@@ -1664,14 +1705,30 @@
     else if(sc.live>MAX_DRAWN) bits.push("efficiency omitted above "+MAX_DRAWN+" orders");
     more.textContent = bits.join(" · ");
 
-    document.getElementById("bhead").innerHTML =
-      S.branch === "R" ? "β" : S.branch === "T" ? "β (T)" : "β R / T";
-    document.getElementById("t-sum").textContent =
-      (sc.eff && showR()) ? fmt(sc.eff.sum,3) : "—";
+    var bh = S.branch === "R" ? "\u03b2"
+      : S.branch === "T" ? "\u03b2 (T)" : "\u03b2 R / T";
+    document.getElementById("bhead").innerHTML = geometryOnly() ? "sin \u03b2" : bh;
+    document.getElementById("ehead").innerHTML = geometryOnly() ? bh : "E";
+    // A sum of efficiencies means nothing without a groove; the count of
+    // propagating orders is what the grating equation answers.
+    document.getElementById("sumlabel").innerHTML =
+      geometryOnly() ? "orders" : "&Sigma; E";
+    document.getElementById("t-sum").textContent = geometryOnly()
+      ? String(sc.live)
+      : ((sc.eff && showR()) ? fmt(sc.eff.sum,3) : "\u2014");
     document.getElementById("recentre").hidden =
       S.uz === 1 && S.upx === 0 && S.upy === 0 && S.roll === 0;
     paintProvenance(sc);
 
+    if(geometryOnly()){
+      document.getElementById("cap").innerHTML =
+        "<b>To scale.</b> The grating equation only: "
+        + "sin \u03b1 + sin \u03b2<sub>m</sub> = m\u03bb/(p sin \u03b3). "
+        + "No groove profile is modelled, so every propagating order is "
+        + "drawn alike."
+        + (showT() ? " Dashed = transmitted." : "");
+      return;
+    }
     document.getElementById("cap").innerHTML =
       "<b>To scale</b>, bar the patch size. "+
       (showT()
@@ -1739,6 +1796,24 @@
       b.addEventListener("click", function(){
         S.branch = b.dataset.v === "B" ? "both" : b.dataset.v;
         paint(); draw();       // geometry only -- no physics to recompute
+      });
+    });
+    paint();
+  })();
+
+  (function(){
+    var seg = document.getElementById("modeseg"), out = document.getElementById("v-mode");
+    function paint(){
+      Array.prototype.forEach.call(seg.children, function(b){
+        b.setAttribute("aria-pressed", b.dataset.v === S.mode ? "true" : "false");
+      });
+      out.textContent = S.mode === "geometry" ? "grating eqn" : "groove model";
+      document.getElementById("app").classList.toggle("geometry", geometryOnly());
+    }
+    Array.prototype.forEach.call(seg.children, function(b){
+      b.addEventListener("click", function(){
+        S.mode = b.dataset.v;
+        paint(); invalidate(); draw();
       });
     });
     paint();
