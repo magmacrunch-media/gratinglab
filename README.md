@@ -29,6 +29,20 @@ implementation and stays the source of truth.
 
 - **Geometry** — the generalized grating equation, `sin α + sin β_m = mλ/(p sin γ)`,
   order bookkeeping, evanescent orders drawn as passing off rather than dropped.
+- **Two parameterisations of the same mount**: `(γ, α)`, the cone angles the
+  diffraction is written in, or `(η, φ)`, the principal axes a stage is actually
+  set to: `sin η = sin γ cos α` and `sin φ = tan α tan η` (McCoy et al. 2020).
+  `η` is the pitch angle *and* the graze angle onto the substrate: one number,
+  two names. `φ` is yaw, measured from the groove direction, so `φ = 0` is
+  an exact off-plane mount and `φ = 90°` an exact in-plane one. Turning the
+  grating about its own normal at fixed pitch opens the cone:
+  `sin²γ = sin²η + sin²φ cos²η`. Roll `ϕ` is the third axis and **adds to `α`**:
+  it turns the grating about the groove axis, which `γ` cannot see, so
+  `α = α(η, φ) + ϕ`. Set against a mount that is not level, the stage pitch and
+  the graze the surface actually sees come apart, and the app shows both.
+  `α = 0`, `φ = 0` and `η = γ` are one condition, the exact off-plane mount,
+  whose `γ = 90°` end is normal incidence: `k̂ᵢ = −n̂`, `sin β_m = mλ/p`, and no
+  azimuth left to turn.
 - **Reflection and transmission** — the same grating equation governs both, and
   the propagation test `|sin β_m| ≤ 1` never mentions the branch, so **exactly
   the same orders propagate on each side**. A transmitted order is distinguished

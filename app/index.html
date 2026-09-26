@@ -147,6 +147,11 @@
     font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:13px;
     color:var(--ink-dim); width:12px; text-align:center;
   }
+  /* `display:flex` is (0,1,0) and the UA sheet's `[hidden]` is (0,0,1), so the
+     flex rule wins and a hidden row would still lay out. Same shape as the
+     `.thesis div` / `.narrow-hide` clash below; state it rather than reach for
+     !important. */
+  .phys[hidden]{display:none;}
   .phys input[type=range]{flex:1 1 auto; min-width:44px;}
   .phys .val{
     font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11.5px;
@@ -234,6 +239,7 @@
     border-bottom:1px solid var(--rule);
   }
   .knob{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px;}
+  .knob[hidden]{display:none;}   /* (0,1,0) beats the UA sheet's [hidden]; see .phys */
   /* Hidden in the geometry view: a blaze angle, a coating and a reflectivity
      model are all statements about a groove, and the cone of diffraction does
      not have one. */
@@ -393,15 +399,25 @@
       <canvas id="strip"></canvas>
     </div>
     <div id="toolbar">
-      <div class="phys">
+      <div class="phys cone-only">
         <label for="k-gamma">&gamma;</label>
         <input type="range" id="k-gamma" min="0" max="1000" value="0">
         <span class="val" id="v-gamma"></span>
       </div>
-      <div class="phys">
+      <div class="phys cone-only">
         <label for="k-alpha">&alpha;</label>
         <input type="range" id="k-alpha" min="-800" max="800" value="250">
         <span class="val" id="v-alpha"></span>
+      </div>
+      <div class="phys axes-only" hidden>
+        <label for="k-eta" title="pitch / graze onto the substrate">&eta;</label>
+        <input type="range" id="k-eta" min="0" max="1000" step="0.1" value="0">
+        <span class="val" id="v-eta"></span>
+      </div>
+      <div class="phys axes-only" hidden>
+        <label for="k-gyaw" title="yaw, from the groove direction">&phi;</label>
+        <input type="range" id="k-gyaw" min="-1000" max="1000" step="0.1" value="0">
+        <span class="val" id="v-gyaw"></span>
       </div>
       <button type="button" id="sheetbtn" aria-expanded="false"
               aria-controls="sheet">Controls</button>
@@ -437,6 +453,19 @@
           <button type="button" data-v="efficiency">efficiency</button>
         </div>
         <span class="val" id="v-mode"></span>
+      </div>
+      <div class="knob">
+        <span class="name">mount</span>
+        <div class="seg" id="mountseg">
+          <button type="button" data-v="cone">&gamma; &alpha;</button>
+          <button type="button" data-v="axes">&eta; &phi;</button>
+        </div>
+        <span class="val" id="v-mount"></span>
+      </div>
+      <div class="knob axes-only" hidden>
+        <span class="name" title="grating roll, about the groove axis">&#x3d5; roll</span>
+        <input type="range" id="k-groll" min="-1000" max="1000" value="0">
+        <span class="val" id="v-groll"></span>
       </div>
       <div class="knob">
         <span class="name">orders</span>
@@ -534,10 +563,13 @@
 
   var S = {
     period:315.15, alpha:25, gamma:1.5, lambda:3, blaze:29.5, band:0, coating:true,
-    branch:"R", reflModel:"local", mode:"geometry",
+    branch:"R", reflModel:"local", mode:"geometry", mount:"cone",
     // The free transform, applied over the fitted framing. Reset by Recentre
     // and by a double tap; the fit and the rim slider decide everything else.
     uz:1, upx:0, upy:0, roll:0,
+    // Grating roll, the third principal axis. Distinct from `roll` above,
+    // which is the viewer's two-finger twist and touches no physics.
+    groll:0,
     yaw:26.6, pitch:20.4, rim:0, spin:0
   };
 
@@ -610,6 +642,69 @@
       if(d<bestd){bestd=d; best=m;}
     }
     return best;
+  }
+
+  // ---- principal axes: the mount as a stage actually sets it -----------
+  //
+  // (gamma, alpha) is how the diffraction is parameterised; (eta, phi) is how
+  // a grating is placed on a beamline. McCoy et al. (2020), and Chapter 2 of
+  // the thesis at eq. graze_angle and eq. yaw_angle:
+  //
+  //   sin eta = sin gamma cos alpha
+  //   sin phi = sin gamma sin alpha / cos eta  =  tan alpha tan eta
+  //
+  // eta is BOTH names at once and that is the point: it is the pitch stage
+  // angle, and it is the graze angle onto the substrate -- measured from the
+  // surface, like zeta, not from the normal. The thesis calls it the graze
+  // angle; the 2020 paper's figure calls the same quantity pitch. They are one
+  // number, so there is no third angle here to add.
+  //
+  // phi is measured from the GROOVE direction, so phi = 0 is an exact off-plane
+  // mount and phi = 90 an exact in-plane one, and turning the grating about its
+  // own normal at fixed pitch opens the cone: sin^2 gamma = sin^2 eta +
+  // sin^2 phi cos^2 eta rises monotonically in |phi| from gamma = eta.
+  //
+  // The third principal axis, roll about the beam, is absent deliberately. It
+  // leaves alpha and gamma alone -- it rotates the whole arc in the detector
+  // frame, which is the thesis's sin(alpha + roll) = dx_0 / r -- and this scene
+  // is drawn in the grating's frame, where there is nothing for it to change.
+  // Taken at an explicit alpha rather than at S.alpha, because roll makes those
+  // two different numbers: the stage's angles are set against the optic mount
+  // and answer to the NOMINAL alpha, while the graze the surface actually sees
+  // answers to the real one. They coincide at zero roll, which is every
+  // geometry anybody intends.
+  function grazeAt(alphaDeg){                     // eta, radians
+    return Math.asin(Math.max(-1, Math.min(1,
+      Math.sin(S.gamma*RAD)*Math.cos(alphaDeg*RAD))));
+  }
+  function yawAt(alphaDeg){                       // phi, radians, signed with alpha
+    var ce = Math.cos(grazeAt(alphaDeg));
+    // gamma = 90 with alpha = 0 is eta = 90 and 0/0: normal incidence, where
+    // the beam runs down -n-hat, has no projection in the surface, and the yaw
+    // stage has nothing left to turn.
+    if(ce < 1e-12) return 0;
+    return Math.asin(Math.max(-1, Math.min(1,
+      Math.sin(S.gamma*RAD)*Math.sin(alphaDeg*RAD)/ce)));
+  }
+  // The graze the grating actually sees, which is what the header reports and
+  // what has to be compared against a critical angle.
+  function substrateGraze(){ return grazeAt(S.alpha); }
+  // gamma = 90 with alpha = 0: the beam runs straight down -n-hat. sin eta =
+  // sin 90 cos 0 = 1, so eta = 90 and cos eta = 0 -- the beam has no projection
+  // in the surface and there is no yaw to measure. Every phi maps to this same
+  // geometry, which is why the yaw knob is inert here and says so rather than
+  // looking broken.
+  function normalIncidence(){
+    return Math.abs(S.gamma - 90) < 0.005 && Math.abs(S.alpha) < 0.05;
+  }
+
+  // The inverse, which is what a slider on either axis needs. Exact, from
+  // sin gamma sin alpha = sin phi cos eta and sin gamma cos alpha = sin eta.
+  function fromAxes(etaDeg, phiDeg){
+    var e = etaDeg*RAD, p = phiDeg*RAD;
+    var sgsa = Math.sin(p)*Math.cos(e), sgca = Math.sin(e);
+    return [Math.atan2(sgsa, sgca)*DEG,
+            Math.asin(Math.min(1, Math.sqrt(sgsa*sgsa + sgca*sgca)))*DEG];
   }
 
   // ---- materials ------------------------------------------------------
@@ -980,6 +1075,61 @@
              "package's integral solver does carry one (R + T = 1); it is not ported. "+
              "Transmitted rays are drawn dashed and at uniform width so their "+
              "thickness cannot be read as an efficiency."});
+    }
+    out.push({level:"note", mark:"\u2220",
+      title:"\u03b7 " + fmtAng(stageGraze()*DEG) + "\u00b0 \u00b7 \u03c6 " +
+            fmtAng(stageYaw()*DEG) + "\u00b0" +
+            (S.groll ? " \u00b7 \u03d5 " + fmt(S.groll,2) + "\u00b0" : "") +
+            ": the same geometry as a stage sets it",
+      body:"sin \u03b7 = sin \u03b3 cos \u03b1 and sin \u03c6 = tan \u03b1 tan \u03b7 " +
+           "(McCoy et al. 2020). \u03b7 is the pitch angle and the graze angle onto the " +
+           "substrate at once, measured from the surface as \u03b6 is; \u03c6 is yaw, " +
+           "measured from the groove direction, so \u03c6 = 0 is an exact off-plane mount " +
+           "and \u03c6 = 90\u00b0 an exact in-plane one. Turning the grating about its own " +
+           "normal at fixed pitch opens the cone: sin\u00b2\u03b3 = sin\u00b2\u03b7 + " +
+           "sin\u00b2\u03c6 cos\u00b2\u03b7, so \u03b3 rises from \u03b7 at zero yaw to 90\u00b0 " +
+           "at \u03c6 = 90\u00b0. Roll \u03d5 is the third axis and it adds to \u03b1: it turns " +
+           "the grating about the groove axis, which \u03b3 cannot see, so \u03b1 = " +
+           "\u03b1(\u03b7, \u03c6) + \u03d5. That makes it degenerate with the \u03b1 knob in " +
+           "this frame, and it is offered here only because \u03b7 and \u03c6 are what a stage " +
+           "sets while \u03d5 is the levelling error that carries the real \u03b1 away from " +
+           "them."});
+    // The two etas only differ under roll, so say so only then -- and say it
+    // with both numbers, because the one that matters against a critical angle
+    // is the one the surface sees, not the one the stage was set to.
+    if(S.groll){
+      out.push({level:"expected", mark:"\u03d5",
+        title:"roll " + fmt(S.groll,2) + "\u00b0: \u03b1 is " + fmt(S.alpha,1) +
+              "\u00b0, not the " + fmt(nominalAlpha(),1) + "\u00b0 the stage was set to",
+        body:"\u03b7 and \u03c6 are set against the optic mount, and a rolled mount is not " +
+             "the grating's own frame. The graze the surface actually sees is " +
+             fmtAng(substrateGraze()*DEG) + "\u00b0 against the " +
+             fmtAng(stageGraze()*DEG) + "\u00b0 on the pitch stage. \u03b3 is untouched, " +
+             "since roll turns the grating about the groove axis and \u03b3 is the angle to " +
+             "that axis. Real mounts are levelled to well under a degree; the range here " +
+             "is wider so the effect is visible at grazing, where a degree of \u03b1 is a " +
+             "large fraction of the whole geometry."});
+    }
+    // alpha = 0, phi = 0 and eta = gamma are one condition, not three: sin eta
+    // = sin gamma cos alpha collapses to sin eta = sin gamma, and sin phi =
+    // tan alpha tan eta to zero. Worth saying where it happens, because the
+    // stage angles and the cone angles coincide there and nowhere else.
+    if(Math.abs(S.alpha) < 0.05){
+      out.push({level:"note", mark:"\u2261",
+        title: normalIncidence()
+          ? "normal incidence: \u03b1 = 0 and \u03b3 = 90\u00b0, so \u03b7 = \u03b3 = 90\u00b0"
+          : "zero yaw: \u03b1 = 0, so \u03b7 = \u03b3 = " + fmtAng(S.gamma) + "\u00b0",
+        body:"The exact off-plane mount. \u03b1 = 0, \u03c6 = 0 and \u03b7 = \u03b3 are the same "+
+             "statement: sin \u03b7 = sin \u03b3 cos \u03b1 collapses to sin \u03b7 = sin \u03b3, and the "+
+             "stage's pitch is the cone's half-angle. The beam lies in the plane of the "+
+             "grooves and the normal, so the orders come out symmetric about n\u0302." +
+             (normalIncidence()
+               ? " This is the far end of that line, where the cone has opened flat: "+
+                 "k\u0302\u1d62 = \u2212n\u0302, the grating equation reduces to sin \u03b2_m = m\u03bb/p, and "+
+                 "the azimuth stops existing. \u03b7 = 90\u00b0 leaves the beam no projection in "+
+                 "the surface, so every yaw gives this same geometry and the yaw knob has "+
+                 "nothing to turn."
+               : "")});
     }
     out.push({level:"note", mark:"\u25cb",
       title:"all orders on one cone of half-angle \u03b3",
@@ -1517,17 +1667,36 @@
     label([0, GR*Math.sin(gam/2), GR*Math.cos(gam/2)],
           "\u03b3 " + fmt(S.gamma,2) + "\u00b0", "#b9c4da", 11, -7, 11.5);
 
-    // alpha, the azimuth of incidence, measured from n-hat toward d-hat in the
-    // plane across the grooves. gamma opens the cone; alpha turns the light
-    // around it, and between them they are the whole mount.
-    var AR = 0.30, alp = S.alpha*RAD, aarc = [];
-    line(O, [AR*Math.sin(alp), AR*Math.cos(alp), 0], "#6b7794", 1, [4,4], 0.55);
-    for(i=0;i<=24;i++){
-      var at = alp*i/24;
-      aarc.push([AR*Math.sin(at), AR*Math.cos(at), 0]);
-    }
+    // alpha, the azimuth of incidence. gamma opens the cone; alpha turns the
+    // light around it, and between them they are the whole mount -- but the
+    // two angles do not have the same vertex, and drawing them as though they
+    // did is what was wrong here. The thesis is explicit: gamma is the apex
+    // angle (angle AIC, at the incidence point), alpha is measured at C, the
+    // CENTRE OF THE CONE'S BASE CIRCLE, between the normal-most point of the
+    // rim and the point where the beam pierces it. yaw.mp draws it there too,
+    // with B--F as its reference leg.
+    //
+    // Drawn at the apex instead, an alpha arc terminates on a bare direction
+    // with no ray under it, so it reads as the angle between n-hat and k-hat_i,
+    // which is 90.6 degrees and not 25; and it leaves the frame entirely at rim
+    // focus, the one view that exists to read azimuths. On the rim it has the
+    // direct beam for a far leg, -n-hat for a near leg, and it sits among the
+    // orders it is a reference for. It is also the construction the thesis
+    // MEASURES it by -- sin alpha = dx_dir / r, off the fitted arc centre.
+    //
+    // k-hat_i continued forward IS the rim point at azimuth pi + alpha, so the
+    // direct beam needs no separate construction; it is the incident ray drawn
+    // through. With transmission shown it coincides with transmitted m = 0,
+    // which is the same statement made twice and correct both times.
+    var alp = S.alpha*RAD, aarc = [];
+    var direct = kvec(Math.PI + alp), axisPt = [0,0,cg];
+    line(O, direct, "#8fa3c8", 1, [5,5], 0.5);
+    dotAt(direct, "#8fa3c8", 2.2);
+    line(axisPt, kvec(Math.PI), "#6b7794", 1, [4,4], 0.5);
+    line(axisPt, direct, "#6b7794", 1, [4,4], 0.5);
+    for(i=0;i<=32;i++) aarc.push(kvec(Math.PI + alp*i/32));
     poly(aarc, "#8b97b0", 1.3, 0.9);
-    label([AR*Math.sin(alp/2), AR*Math.cos(alp/2), 0],
+    label(kvec(Math.PI + alp/2),
           "\u03b1 " + fmt(S.alpha,1) + "\u00b0", "#b9c4da", 10, -6, 11.5);
 
     paintReadout(sc);
@@ -1647,14 +1816,26 @@
 
   // ---- readout -------------------------------------------------------
   function fmt(x,n){return x.toFixed(n==null?2:n);}
+  // Angles that have to be comparable to each other: three places while the
+  // grazing digits matter, one once they do not.
+  function fmtAng(x){return fmt(x, Math.abs(x)<10?3:1);}
 
   function paintReadout(sc){
     paintRatio();
     // Grooves per mm, not a period in nm: it is what gratings are specified
     // and ordered by, and 3173 is recognisable where 315.15 is not.
     document.getElementById("config").textContent =
-      fmt(1e6/S.period,0) + " \u2113/mm  \u00b7  \u03b3 " + fmt(S.gamma,2) + "\u00b0"
+      fmt(1e6/S.period,0) + " \u2113/mm  \u00b7  \u03b3 " + fmtAng(S.gamma) + "\u00b0"
       + "  \u00b7  \u03b1 " + fmt(S.alpha,1) + "\u00b0"
+      // eta earns a permanent slot in both mounts: it is the pitch the stage
+      // is set to AND the graze onto the substrate, which is the number that
+      // decides whether the grating reflects at all.
+      //
+      // It shares gamma's precision here rather than carrying its own, because
+      // eta = gamma exactly when alpha = 0 and printing one at 2 places and the
+      // other at 3 made that identity read as a disagreement: 1.50 against
+      // 1.496, which is one number twice.
+      + "  \u00b7  \u03b7 " + fmtAng(substrateGraze()*DEG) + "\u00b0"
       + "  \u00b7  \u03bb " + fmt(S.lambda,2) + " nm"
       + (geometryOnly() ? ""
          : "  \u00b7  \u03b4 " + fmt(S.blaze,1) + "\u00b0");
@@ -1775,6 +1956,89 @@
   function geo(v, lo, hi){ return lo*Math.pow(hi/lo, v/1000); }
   function geoInv(x, lo, hi){ return 1000*Math.log(x/lo)/Math.log(hi/lo); }
 
+  // Yaw is violently nonlinear near zero and a linear track is unusable there:
+  // at eta = 1.36 degrees, half a degree of yaw moves alpha by 20. So the same
+  // geometric mapping the gamma knob uses, mirrored about zero -- with a small
+  // dead zone, because geo() bottoms out at its lower bound rather than at 0
+  // and a yaw readout of 0.004 degrees is a worse lie than a detent.
+  var YAW_LO = 0.004, YAW_DEAD = 8, YAW_SPAN = 1000 - YAW_DEAD;
+  function sgeo(v){
+    if(Math.abs(v) <= YAW_DEAD) return 0;
+    return (v<0?-1:1) * geo((Math.abs(v)-YAW_DEAD)/YAW_SPAN*1000, YAW_LO, 90);
+  }
+  function sgeoInv(x){
+    var a = Math.abs(x);
+    if(a < YAW_LO) return 0;
+    return (x<0?-1:1) * (geoInv(Math.min(90,a), YAW_LO, 90)*YAW_SPAN/1000 + YAW_DEAD);
+  }
+
+  // Clamp in AXIS space, not after converting. Clamping alpha afterwards looks
+  // equivalent and is not: it leaves gamma where the yaw put it, and eta is a
+  // function of both, so the eta readout walks while the eta knob is untouched.
+  // Measured before this was written -- eta 1.359 quietly became 5.397 as the
+  // yaw ran past alpha's limit, which is the one thing a two-parameterisation
+  // control must never do.
+  //
+  // So each of the cone pair's two limits is restated as a limit on the axis
+  // pair, and neither is a UI invention -- both are the same box seen from the
+  // other side.
+  //
+  // alpha bounds YAW: from sin phi = tan alpha tan eta, |alpha| <= 80 gives
+  // |sin phi| <= tan 80 tan eta. At eta = 1.36 degrees that is 7.7 degrees, the
+  // real statement that at grazing pitch a couple of degrees of yaw is the
+  // whole usable range.
+  //
+  // gamma's floor bounds ETA FROM BELOW, and this is the one that is easy to
+  // get wrong twice. eta <= gamma always, so "floor eta at gamma's own 0.25"
+  // looks sufficient and instead deletes reachable geometry: gamma = 0.25 with
+  // alpha = 80 is eta = 0.043, and a slider that cannot hold it snapped the
+  // scene by 30 degrees of alpha the first time an axis knob was touched.
+  // Solving sin^2 eta + sin^2 phi cos^2 eta = sin^2 gamma_min for eta gives the
+  // floor that actually applies at this yaw -- and above |phi| = gamma_min the
+  // yaw alone already holds gamma up, so there is no floor left to apply.
+  // Roll is the third principal axis: a turn about the groove axis, which
+  // leaves gamma alone (the beam and that axis are both fixed by it) and
+  // carries alpha with it. So alpha = alpha(eta, phi) + roll, and in the
+  // grating frame roll is degenerate with the alpha knob -- which is why it is
+  // offered only in the axes mount, where eta and phi are the stage settings
+  // and roll is the levelling error that takes the real alpha away from them.
+  // Real ones are under a degree; the range here is wider so the effect is
+  // visible at grazing, where a degree of alpha is a large fraction of it.
+  var ALPHA_MAX = 80, ETA_MIN = 0.04, ETA_MAX = 90, GAMMA_MIN = 0.25, ROLL_MAX = 10;
+  function nominalAlpha(){
+    return Math.max(-ALPHA_MAX, Math.min(ALPHA_MAX, S.alpha - S.groll));
+  }
+  function stageGraze(){ return grazeAt(nominalAlpha()); }   // the eta knob
+  function stageYaw(){ return yawAt(nominalAlpha()); }       // the phi knob
+  function yawLimit(etaDeg){
+    return Math.asin(Math.min(1,
+      Math.tan(ALPHA_MAX*RAD)*Math.tan(etaDeg*RAD)))*DEG;
+  }
+  function etaFloor(phiDeg){
+    var sp = Math.sin(phiDeg*RAD), sg = Math.sin(GAMMA_MIN*RAD);
+    var num = sg*sg - sp*sp;
+    if(num <= 0) return ETA_MIN;
+    return Math.max(ETA_MIN, Math.asin(Math.min(1,
+      Math.sqrt(num)/Math.abs(Math.cos(phiDeg*RAD))))*DEG);
+  }
+  // Yaw first, then eta: raising eta only ever relaxes the yaw limit, so one
+  // pass settles rather than the two chasing each other. Roll is clamped last,
+  // against what is left of alpha's range -- for the same reason the yaw is
+  // clamped in axis space at all. Letting alpha take the clamp instead would
+  // leave the nominal alpha somewhere other than fromAxes() put it, and eta
+  // and phi would walk with their own knobs untouched.
+  function setAxes(etaDeg, phiDeg, rollDeg){
+    var e = Math.max(ETA_MIN, Math.min(ETA_MAX, etaDeg));
+    var lim = yawLimit(e);
+    var p = Math.max(-lim, Math.min(lim, phiDeg));
+    var ag = fromAxes(Math.max(etaFloor(p), e), p);
+    var r = Math.max(-ROLL_MAX, Math.min(ROLL_MAX, rollDeg));
+    r = Math.max(-ALPHA_MAX - ag[0], Math.min(ALPHA_MAX - ag[0], r));
+    S.groll = r;
+    S.alpha = Math.max(-ALPHA_MAX, Math.min(ALPHA_MAX, ag[0] + r));   // float noise only
+    S.gamma = Math.max(GAMMA_MIN, Math.min(90, ag[1]));
+  }
+
   var K = {
     gamma:{el:"k-gamma", out:"v-gamma",
       get:function(v){return geo(v,0.25,90);},
@@ -1783,6 +2047,27 @@
     alpha:{el:"k-alpha", out:"v-alpha",
       get:function(v){return v/10;}, set:function(x){return x*10;},
       fmt:function(x){return fmt(x,1)+"°";}},
+    // eta and phi are the same two degrees of freedom seen from the stage.
+    // They are derived, never stored: (gamma, alpha) stays the one state, so
+    // the two pairs cannot drift apart.
+    eta:{el:"k-eta", out:"v-eta",
+      get:function(v){return geo(v,ETA_MIN,ETA_MAX);},
+      set:function(x){return geoInv(Math.max(ETA_MIN,Math.min(ETA_MAX,x)),ETA_MIN,ETA_MAX);},
+      fmt:function(x){return fmt(x, x<10?3:1)+"°";},
+      read:function(){return stageGraze()*DEG;},
+      apply:function(x){setAxes(x, stageYaw()*DEG, S.groll);}},
+    gyaw:{el:"k-gyaw", out:"v-gyaw",
+      get:sgeo, set:sgeoInv,
+      // At eta = 90 there is no yaw rather than a yaw of zero, and a knob that
+      // reads 0.000 while doing nothing looks broken instead of degenerate.
+      fmt:function(x){return Math.cos(stageGraze()) < 1e-6 ? "—"
+                           : fmt(x, Math.abs(x)<10?3:1)+"°";},
+      read:function(){return stageYaw()*DEG;},
+      apply:function(x){setAxes(stageGraze()*DEG, x, S.groll);}},
+    groll:{el:"k-groll", out:"v-groll",
+      get:function(v){return v/100;}, set:function(x){return x*100;},
+      fmt:function(x){return fmt(x, Math.abs(x)<10?2:1)+"°";},
+      apply:function(x){setAxes(stageGraze()*DEG, stageYaw()*DEG, x);}},
     lambda:{el:"k-lambda", out:"v-lambda",
       get:function(v){return v/100;}, set:function(x){return x*100;},
       fmt:function(x){return fmt(x,2)+" nm";}},
@@ -1797,18 +2082,67 @@
       fmt:function(x){return fmt(x,1)+"°";}}
   };
 
+  function knobValue(spec, key){ return spec.read ? spec.read() : S[key]; }
+
+  // The two parameterisations are one state, so a move on either pair has to be
+  // written back to the other. `except` is the knob under the finger: rewriting
+  // its own value mid-drag fights the pointer, and it is already correct --
+  // unless a clamp refused it, which is exactly when it should snap back.
+  var MOUNT_KNOBS = ["gamma","alpha","eta","gyaw","groll"];
+  function syncKnobs(except){
+    MOUNT_KNOBS.forEach(function(key){
+      var spec = K[key], v = knobValue(spec, key);
+      if(key !== except) document.getElementById(spec.el).value = spec.set(v);
+      document.getElementById(spec.out).textContent = spec.fmt(v);
+    });
+  }
+
   Object.keys(K).forEach(function(key){
     var spec=K[key], el=document.getElementById(spec.el), out=document.getElementById(spec.out);
-    el.value = spec.set(S[key]);
-    out.textContent = spec.fmt(S[key]);
+    el.value = spec.set(knobValue(spec, key));
+    out.textContent = spec.fmt(knobValue(spec, key));
     el.addEventListener("input", function(){
       stopSweep();               // hoisted; a hand on a knob wins over the sweep
-      S[key] = spec.get(parseFloat(el.value));
-      out.textContent = spec.fmt(S[key]);
+      var x = spec.get(parseFloat(el.value));
+      if(spec.apply) spec.apply(x); else S[key] = x;
+      if(spec.apply || key === "gamma" || key === "alpha") syncKnobs(key);
+      else out.textContent = spec.fmt(S[key]);
       invalidate();
       draw();
     });
+    // On release, settle the knob that was dragged too. Mid-drag it is left
+    // alone -- writing .value under a captured pointer makes the thumb fight
+    // the finger -- so a yaw pushed past its limit runs ahead of its value
+    // until here, where it snaps back onto the limit it actually reached.
+    el.addEventListener("change", function(){
+      if(spec.apply || key === "gamma" || key === "alpha") syncKnobs();
+    });
   });
+
+  (function(){
+    var seg = document.getElementById("mountseg"), out = document.getElementById("v-mount");
+    function show(sel, on){
+      Array.prototype.forEach.call(document.querySelectorAll(sel), function(el){
+        el.hidden = !on;
+      });
+    }
+    function paint(){
+      Array.prototype.forEach.call(seg.children, function(b){
+        b.setAttribute("aria-pressed", b.dataset.v === S.mount ? "true" : "false");
+      });
+      out.textContent = S.mount === "cone" ? "cone angles" : "principal axes";
+      show(".cone-only", S.mount === "cone");
+      show(".axes-only", S.mount === "axes");
+      syncKnobs();               // the pair coming into view may be stale
+    }
+    Array.prototype.forEach.call(seg.children, function(b){
+      b.addEventListener("click", function(){
+        S.mount = b.dataset.v;
+        paint(); draw();         // the same geometry, named differently
+      });
+    });
+    paint();
+  })();
 
   (function(){
     var seg = document.getElementById("branchseg"), out = document.getElementById("v-branch");
@@ -1967,7 +2301,11 @@
 
   function paintMount(){
     var g = S.gamma, t;
-    if(g <= MOUNT_OFF_PLANE)     t = "extreme off-plane mount · grazing incidence";
+    // gamma = 90 with alpha = 0 is k-hat_i = -n-hat, straight down the normal.
+    // It is in-plane and classical, which the next branch would say, but it is
+    // also the one geometry where the azimuth stops existing -- so name it.
+    if(normalIncidence())         t = "normal incidence · the azimuth degenerates";
+    else if(g <= MOUNT_OFF_PLANE) t = "extreme off-plane mount · grazing incidence";
     else if(g >= MOUNT_IN_PLANE) t = "in-plane mount · classical dispersion";
     else                         t = "conical (off-plane) mount · γ = " + fmt(g,1) + "°";
     document.getElementById("stamp-sub").textContent = t;
@@ -1996,8 +2334,7 @@
 
   function setGamma(x){
     S.gamma = x;
-    document.getElementById("k-gamma").value = K.gamma.set(x);
-    document.getElementById("v-gamma").textContent = K.gamma.fmt(x);
+    syncKnobs();                 // eta and phi move with gamma, so sweep both
     invalidate();
   }
 

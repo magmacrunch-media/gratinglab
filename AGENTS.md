@@ -332,6 +332,114 @@ resolves it against the largest viewport, the one with the URL bar hidden, so th
 layout is taller than what you can see. `dvh` with a `100%` fallback, and a flex
 percentage split rather than `44vh` + `52vh`.
 
+## γ and α do not share a vertex, and drawing them as though they did was wrong
+
+`conventions.md` §3 defines α as an azimuth and stops there, so the app drew its
+arc at the apex, in the d̂–n̂ plane, terminating on the direction `(sin α, cos α,
+0)`. The *measure* was right and the *anchor* was not, which is the worst
+combination: nothing in the picture sat on that leg, so the figure read as the
+angle between n̂ and k̂ᵢ, which is **90.6°, not 25°**; and at rim focus, the
+one view that exists to read azimuths, it left the frame entirely.
+
+The thesis is explicit where `conventions.md` is silent. `fig:grating_angles`
+has **γ ≡ ∠AIC at the apex and α ≡ ∠ACB at C, the centre of the cone's base
+circle**, and `grating-metapost/geometry/yaw.mp` draws it there too, with
+`B--F` commented `% reference line for alpha`. So α now sits on the rim: vertex
+on the cone axis, near leg to the −n̂ rim point, far leg to where the beam
+pierces it. That is also the construction `fig:ALS_arc` **measures** it by:
+`sin α = Δx_dir / r` off the fitted arc centre.
+
+k̂ᵢ continued forward *is* the rim point at azimuth π + α, so the direct beam
+needs no construction of its own; it is the incident ray drawn through. With
+transmission shown it coincides with transmitted m = 0, which is the same
+statement twice and right both times.
+
+One erratum found on the way, worth knowing before trusting the caption over
+the equations: Chapter 2's `fig:grating_angles` caption reads `η ≡ ∠CIB and
+φ ≡ ∠AIB`, but `yaw.tex`'s derivation has them the other way round. The blue
+triangle gives `sin i = AB/L`, so η = ∠AIB and yaw = ∠BIC. **The equations are
+self-consistent; the two symbols in that caption are swapped.**
+
+## The mount has two parameterisations and one state
+
+`(γ, α)` is how the diffraction is written; `(η, φ)` is how a grating is placed.
+`sin η = sin γ cos α`, `sin φ = tan α tan η`, and the inverse is exact:
+`α = atan2(sin φ cos η, sin η)`, `γ = asin √(sin²η + sin²φ cos²η)`.
+
+**η is the pitch stage angle and the substrate graze angle at once.** The 2020
+paper's figure calls it pitch, the thesis calls it the graze angle relative to
+the substrate, and it is one number, measured from the surface, as ζ is, not
+from the normal. There is no third angle to add.
+
+**Roll adds to α, and "roll changes nothing" was written here first and is
+wrong.** The mistake came from reading only the thesis's measurement section,
+where `eq:measure_alpha` takes α off the direct beam, which roll cannot move,
+and `eq:measure_roll` then recovers ϕ from the 0-order offset. That is roll as a
+frame misalignment. Operationally it is the other thing: roll turns the grating
+about the groove axis, γ is the angle *to* that axis and cannot see it, so
+**α = α(η, φ) + ϕ**. Dial η and φ against a mount that is not level and you land
+somewhere other than the α your stage settings imply.
+
+In the grating frame that makes roll degenerate with the α knob, which is why it
+is offered only in the axes mount and only there. Note the collision with the
+viewer's own two-finger roll: the state is `S.groll`, never `S.roll`.
+
+It is also why **there are two ηs once ϕ ≠ 0** and the app shows both. The knob
+is the stage pitch, set against the optic mount, and answers to the nominal α;
+the header is the graze the surface actually sees, and answers to the real one.
+They are equal at zero roll, which is every geometry anybody intends, and the
+one that must be compared against a critical angle is the header's. `grazeAt()`
+and `yawAt()` therefore take an explicit α rather than reading `S.alpha`.
+
+**Three conditions are one: α = 0, φ = 0, η = γ.** `sin η = sin γ cos α`
+collapses to `sin η = sin γ`, and `sin φ = tan α tan η` to zero. That is the
+exact off-plane mount, and its γ = 90° end is **normal incidence**: k̂ᵢ = −n̂,
+`sin β_m = mλ/p`, orders symmetric about the normal. It is also the singular
+point of the axis map, where η = 90°, the beam has no projection in the surface,
+and **every φ gives the same geometry**. So the yaw knob there is inert, and
+reads `—` rather than `0.000°`, because a knob showing a number while doing
+nothing looks broken instead of degenerate.
+
+One presentational trap that came with it: γ printed at 2 places and η at 3 made
+`η = γ` read as `1.50` against `1.496`, which is one number twice. Both go
+through `fmtAng` now.
+
+`(γ, α)` stays the single state and `(η, φ, ϕ)` is always derived, so the pairs
+cannot drift. Two things about that were got wrong first and are easy to repeat:
+
+- **Clamp in axis space, not after converting.** Clamping α afterwards looks
+  equivalent and is not: it leaves γ where the yaw put it, and η is a function
+  of both, so **η walked from 1.359° to 5.397° while its own knob was
+  untouched.** Each cone limit is restated as an axis limit instead. α's ±80
+  bounds yaw by `|sin φ| ≤ tan 80 tan η`, which at η = 1.36° is 7.7° and is the
+  real statement that at grazing pitch a couple of degrees of yaw is the whole
+  usable range.
+- **γ's floor bounds η from below, and "floor η at γ's own 0.25" is wrong.**
+  η ≤ γ always, so it looks sufficient; it instead deletes reachable geometry,
+  because γ = 0.25° with α = 80° is η = 0.043°. A slider that could not hold it
+  snapped the scene by **30° of α** the first time an axis knob was touched.
+  Solving `sin²η + sin²φ cos²η = sin²γ_min` for η gives the floor that actually
+  applies at the current yaw, and above |φ| = γ_min the yaw alone already holds
+  γ up so there is none left to apply. Round-trip error over a 56-point grid is
+  then ≤ 1.4°, and the only two cases past 1° are γ = 90° with α = ±80°, where
+  (η, φ) = (10°, ±90°) sits on the domain boundary and the map is degenerate.
+- **Roll is clamped last, against what is left of α's range**, for the same
+  reason. Letting α take the clamp would put the nominal α somewhere other than
+  `fromAxes()` left it, and η and φ would walk again. Measured with the clamp
+  in: 140 roll settings across a (γ, α) grid, **zero drift** in η, φ or γ.
+
+Both were found by driving the sliders from the console and reading the config
+line back, which is the same move the gesture work needed and the only one that
+catches a knob moving a readout it does not own.
+
+Two smaller notes. Yaw is violently nonlinear near zero (at η = 1.36°, half a
+degree of yaw moves α by 20°), so its knob uses γ's geometric mapping mirrored
+about a small dead zone, because `geo()` bottoms out at its lower bound and a
+yaw readout of 0.004° is a worse lie than a detent. And `.phys{display:flex}` is
+(0,1,0) against the UA sheet's `[hidden]` at (0,0,1), so a hidden slider row
+still lays out until `.phys[hidden]{display:none}` says otherwise: the same
+clash as `.thesis div` against `.narrow-hide`.
+
 ## Transmission is a branch, not a second grating equation
 
 `conventions.md` §4 is explicit: a transmitted order keeps the **same** equation
