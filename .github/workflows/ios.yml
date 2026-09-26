@@ -1,0 +1,86 @@
+name: ios
+
+# Path-filtered because this is a private repo, and macOS minutes bill at a
+# multiplier on one. A change to hypnopompia does not trigger this; run it by
+# hand (workflow_dispatch) after one.
+on:
+  push:
+    paths:
+      - 'app/**'
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+jobs:
+  ios-build:
+    name: ios build
+    runs-on: macos-latest
+    steps:
+      # hypnopompia beside this repo, which is package.mjs's second candidate,
+      # so the job needs no HYPNOPOMPIA override and exercises the documented
+      # flat layout rather than a private one.
+      #
+      # No website checkout, unlike crunchscope and the games. This page reads
+      # nothing from magmacrunch.com -- no shared shell, no site fonts -- and
+      # hypnopompia 8a73ddf made the pipeline resolve a website only on first
+      # use so that stays true. If this job ever starts failing for want of one,
+      # something in app/ has grown a dependency it should not have.
+      - name: Check out gratinglab
+        uses: actions/checkout@v7
+        with:
+          path: gratinglab
+
+      - name: Check out hypnopompia beside it
+        uses: actions/checkout@v7
+        with:
+          repository: magmacrunch-media/hypnopompia
+          path: hypnopompia
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Install Capacitor and the vendored faces
+        working-directory: gratinglab/ios
+        run: npm ci
+
+      # Split from cap sync so a failure is attributable: this step is the
+      # no-op-is-fatal rule, the font vendoring, and the sweep that refuses a
+      # bundle reaching outside itself or over the network. "No network
+      # connection of any kind" in the store listing is a claim this checks.
+      - name: Build the bundle from app/
+        working-directory: gratinglab/ios
+        run: node package.mjs
+
+      - name: Sync it into the Xcode project
+        working-directory: gratinglab/ios
+        run: npx cap sync ios
+
+      # A simulator build: no signing, no device. Package.resolved is not
+      # committed, because it can only be produced on a Mac; commit the one this
+      # job or Xcode generates if later builds should resolve what was verified.
+      - name: xcodebuild
+        working-directory: gratinglab/ios/App/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/derived" \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: The app was produced
+        run: test -d "$RUNNER_TEMP/derived/Build/Products/Debug-iphonesimulator/App.app"
+
+      # The bundle that shipped into the app, not the one package.mjs wrote:
+      # cap sync copies www/ into App/App/App/public, and a transform that went
+      # wrong between the two would not show up anywhere else.
+      - name: Nothing in the shipped bundle reaches the network
+        working-directory: gratinglab/ios/App/App/App/public
+        run: |
+          # Only the files that can actually cause a request. The vendored SIL
+          # OFL licence text names http://scripts.sil.org/OFL, which is prose in
+          # a .txt nothing loads -- grepping the whole tree fails on it.
+          if grep -rn --include='*.html' --include='*.css' --include='*.js' 'https\?://' . ; then
+            echo "::error::the shipped bundle contains a network reference"
+            exit 1
+          fi
+          echo "no network references in the shipped bundle"
