@@ -110,6 +110,7 @@
     background:#0b1018cc; border:1px solid var(--rule); border-radius:999px;
     padding:5px 12px; backdrop-filter:blur(6px);
   }
+  #gesture-hint.idle{opacity:.45;}
   /* the dispersion strip takes the bottom of the stage when a band is open */
   #stage.hasstrip .caption{bottom:calc(216px + var(--sab));}
 
@@ -943,6 +944,16 @@
              "Transmitted rays are drawn dashed and at uniform width so their "+
              "thickness cannot be read as an efficiency."});
     }
+    out.push({level:"note", mark:"\u25cb",
+      title:"polar spread 0.00\u00b0, azimuth fan " +
+            (sc.live > 1 ? fmt(sc.fan,1)+"\u00b0" : "\u2014"),
+      body:"Every diffracted order leaves at the same angle \u03b3 to the grooves, so "+
+           "they all lie on one cone and the spread in that angle is exactly zero \u2014 "+
+           "the cone is a needle, 1.5\u00b0 wide here. What separates the orders is "+
+           "where each sits AROUND the cone, its azimuth \u03b2. The fan is the angle "+
+           "from the first propagating order to the last, measured around the rim. So "+
+           "the orders are spread a quarter turn apart while never leaving a needle, "+
+           "and a detector has to sweep an ARC rather than a line to find them."});
     var e = sc.eff;
     if(S.coating && sc.spec && sc.spec.outside > 0){
       out.push({level:"limit", mark:"!",
@@ -1923,15 +1934,29 @@
     return out;
   }
 
+  //: The most contacts ever seen at once. A two-finger gesture that never
+  //: arrives and one that arrives and does nothing look identical on screen,
+  //: and this is the only thing that tells them apart.
+  var peakContacts = 0;
+
   function showHint(){
     var el = document.getElementById("gesture-hint");
     var k = contacts.size;
-    if(!k){ el.hidden = true; return; }
-    var what = k === 1 ? "orbit"
-      : (gesture && gesture.zoomOn ? "zoom" : "") +
-        (gesture && gesture.rollOn ? (gesture.zoomOn ? " + roll" : "roll") : "") ||
-        "pan";
-    el.textContent = k + (k === 1 ? " finger " : " fingers ") + "\u00b7 " + what;
+    if(k > peakContacts) peakContacts = k;
+
+    if(k){
+      var what = k === 1 ? "orbit"
+        : (gesture && gesture.zoomOn ? "zoom" : "") +
+          (gesture && gesture.rollOn ? (gesture.zoomOn ? " + roll" : "roll") : "") ||
+          "pan";
+      el.textContent = k + (k === 1 ? " finger " : " fingers ") + "\u00b7 " + what;
+      el.classList.remove("idle");
+    }else{
+      // Stays after the gesture ends, on purpose: otherwise the evidence is
+      // gone by the time anyone looks.
+      el.textContent = "max fingers seen: " + peakContacts;
+      el.classList.add("idle");
+    }
     el.hidden = false;
   }
 
@@ -2156,6 +2181,8 @@
     if(e.target.closest("#sheet")) return;
     e.preventDefault();
   }, {passive:false});
+
+  showHint();                      // say what has been seen from the start
 
   window.addEventListener("resize", resize);
   window.addEventListener("orientationchange", resize);
