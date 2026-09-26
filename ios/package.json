@@ -1,0 +1,21 @@
+{
+  "name": "gratinglab-ios",
+  "version": "0.0.0",
+  "private": true,
+  "description": "App Store build of gratinglab, derived from ../app by package.mjs",
+  "license": "SEE LICENSE IN ../LICENSE",
+  "scripts": {
+    "build": "node package.mjs",
+    "sync": "node package.mjs && cap sync ios",
+    "open": "cap open ios"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.1",
+    "@fontsource/ibm-plex-mono": "^5.2.5",
+    "@fontsource/ibm-plex-sans": "^5.2.5"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/ios": "^8.5.1"
+  }
+}

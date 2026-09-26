@@ -78,6 +78,47 @@ Two signs are load-bearing and neither is obvious:
   transmitted wave decays. The other branch grows with depth and gives a
   reflectivity above one.
 
+## The App Store bundle
+
+`node ios/package.mjs` builds `ios/www/` from `app/`, on hypnopompia's shared
+pipeline. Bundle id **`com.magmacrunch.gratinglab`**, chosen 2026-09-25 and
+permanent from the first submission. Capacitor uses SPM here, not CocoaPods, so
+there is no `pod install`.
+
+**There is exactly one thing wrong with `app/index.html` in a bundle**: it asks
+Google for IBM Plex. The script vendors the five faces the page actually sets
+(Plex Sans 400/500/600, Plex Mono 400/500) from `@fontsource` and rewrites the
+request into a local `@font-face` block. Everything else is already
+self-contained, which the CI guard keeps true. The bundle is 232 KB, 124 of it
+fonts, and `b.sweepSelfContained()` refuses it if anything reaches outside or
+over the network.
+
+`createBuild` is called with **no `probe`**. Every other consumer vendors files
+from the website repo and passes one; this page reads nothing from it. That is
+hypnopompia `8a73ddf`, which made the website lookup lazy for this consumer, so
+**push hypnopompia before a gratinglab commit that needs it**, as with any
+engine. Do not call `transforms.viewportNotch`: the page already declares
+`viewport-fit=cover`, the transform would be a no-op, and the pipeline's
+contract is that a no-op edit is fatal.
+
+**The page owns its safe areas.** `contentInset` is `"never"` and there is no
+browser chrome in an app, so without `--sat`/`--sab`/`--sal`/`--sar` on `:root`
+the title runs under the Dynamic Island. `env()` only reports real numbers
+because the viewport meta carries `viewport-fit=cover` — the same meta whose
+absence broke the phone layout entirely.
+
+Building and running it on the simulator, from this machine:
+
+```bash
+scp -r ios/App jakemccoy@100.81.70.91:~/glbuild/App
+# on the Mac, with DEVELOPER_DIR set (see below):
+cd ~/glbuild/App/App && xcodebuild -project App.xcodeproj -scheme App \
+  -sdk iphonesimulator -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
+  -derivedDataPath ~/glbuild/dd CODE_SIGNING_ALLOWED=NO build
+xcrun simctl install booted ~/glbuild/dd/Build/Products/Debug-iphonesimulator/App.app
+xcrun simctl launch booted com.magmacrunch.gratinglab
+```
+
 ## Running it on the iOS simulator
 
 The Mac build host is `ssh jakemccoy@100.81.70.91` (the IP, not the hostname).

@@ -26,6 +26,14 @@
     --axis:#6b7794;
     --zero:#95a2bb;
     color-scheme: dark;
+    /* In a browser the chrome provides these gaps. In the bundle there is no
+       chrome and contentInset is "never", so the page owns them: without this
+       the title runs under the Dynamic Island. env() only reports real numbers
+       because the viewport meta carries viewport-fit=cover. */
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
   }
   html,body{height:100%;}
   body{
@@ -43,7 +51,7 @@
      one; the 100% above stays as the fallback. */
   @supports (height: 100dvh){ #app{height:100dvh;} }
   #striphost{
-    position:absolute; left:0; right:0; bottom:54px; z-index:2;
+    position:absolute; left:0; right:0; bottom:calc(54px + var(--sab)); z-index:2;
     background:#070c14f2; border-top:1px solid var(--rule);
   }
   #strip{display:block; width:100%; height:150px;}
@@ -58,8 +66,8 @@
   #stage.dragging{cursor:grabbing;}
   #sky{display:block; width:100%; height:100%;}
   .stamp{
-    position:absolute; left:16px; top:16px; pointer-events:none;
-    display:flex; flex-direction:column; gap:2px;
+    position:absolute; left:calc(16px + var(--sal)); top:calc(14px + var(--sat));
+    pointer-events:none; display:flex; flex-direction:column; gap:2px;
   }
   .stamp h1{
     margin:0; font-size:13px; font-weight:600; letter-spacing:.14em;
@@ -72,7 +80,8 @@
     text-shadow:0 0 10px var(--ground), 0 0 4px var(--ground);
   }
   .thesis{
-    position:absolute; right:16px; top:16px; pointer-events:none;
+    position:absolute; right:calc(16px + var(--sar)); top:calc(14px + var(--sat));
+    pointer-events:none;
     display:flex; gap:22px; font-family:"IBM Plex Mono",ui-monospace,monospace;
     font-variant-numeric:tabular-nums; text-align:right;
   }
@@ -82,19 +91,21 @@
   .thesis .v{font-size:19px; color:var(--ink); line-height:1;}
   .thesis .v.fan{color:var(--order);}
   .caption{
-    position:absolute; left:16px; right:16px; bottom:58px; pointer-events:none;
+    position:absolute; left:calc(16px + var(--sal)); right:calc(16px + var(--sar));
+    bottom:calc(58px + var(--sab)); pointer-events:none;
     font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10.5px;
     color:var(--ink-faint); line-height:1.55;
   }
   .caption b{color:var(--ink-dim); font-weight:400;}
   /* the dispersion strip takes the bottom of the stage when a band is open */
-  #stage.hasstrip .caption{bottom:216px;}
+  #stage.hasstrip .caption{bottom:calc(216px + var(--sab));}
 
   /* -- rim reveal ------------------------------------------------------ */
   #toolbar{
     position:absolute; left:0; right:0; bottom:0; z-index:3;
     display:flex; align-items:center; gap:12px;
-    padding:9px 16px; padding-bottom:calc(9px + env(safe-area-inset-bottom, 0px));
+    padding:9px calc(16px + var(--sar)) 9px calc(16px + var(--sal));
+    padding-bottom:calc(9px + var(--sab));
     background:linear-gradient(to top, #050910f2 40%, #05091000);
   }
   #sheetbtn{
@@ -130,7 +141,7 @@
     border-top:1px solid var(--rule);
     transform:translateY(100%); visibility:hidden;
     transition:transform .22s ease, visibility .22s;
-    padding-bottom:env(safe-area-inset-bottom, 0px);
+    padding-bottom:var(--sab);
   }
   #sheet.open{transform:none; visibility:visible;}
   .sheethead{
@@ -239,7 +250,8 @@
     /* Two absolutely-positioned corners cannot share 400pt. Drop the thesis to
        its own full-width row under the title instead of overlapping it. */
     .thesis{
-      top:36px; left:16px; right:16px; gap:12px;
+      top:calc(34px + var(--sat)); left:calc(16px + var(--sal));
+      right:calc(16px + var(--sar)); gap:12px;
       justify-content:space-between; text-align:left;
     }
     .thesis .v{font-size:15px;}
@@ -290,6 +302,7 @@
          74px + 82px of fixed columns before the control gets any width.
          Floor it at 300 so the values never clip. */
       width:min(380px, max(300px, 42%));
+      padding-top:var(--sat); padding-right:var(--sar);
       border-top:none; border-left:1px solid var(--rule);
       transform:translateX(100%);
     }
