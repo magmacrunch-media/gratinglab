@@ -485,7 +485,7 @@
     branch:"R", reflModel:"local",
     // The free transform, applied over the fitted framing. Reset by Recentre
     // and by a double tap; the fit and the rim slider decide everything else.
-    uz:1, upx:0, upy:0,
+    uz:1, upx:0, upy:0, roll:0,
     yaw:26.6, pitch:20.4, rim:0, spin:0
   };
 
@@ -1059,6 +1059,12 @@
              zoom:1, px:1, cx:0, cy:0, offX:0, offY:0};
 
   var MIN_ZOOM = 0.3, MAX_ZOOM = 60;
+  //: How far a two-finger gesture must go before zoom or roll engages. Two
+  //: fingers never move in perfect sympathy, so without these a pan arrives
+  //: with a few per cent of zoom and a degree or two of roll smeared into it,
+  //: and the gesture stops feeling like the one thing it was meant to be.
+  var ZOOM_DEADBAND = 0.08;      // 8% change in separation
+  var ROLL_DEADBAND = 7*Math.PI/180;
   //: Room for an order label at a ray tip, in CSS pixels.
   var LABEL_PAD = 30;
 
@@ -1137,6 +1143,16 @@
     var wup = Math.abs(f[1])>0.999 ? [0,0,1] : [0,1,0];
     var r = norm(cross(f,wup));
     var u = cross(r,f);
+
+    // Roll spins the basis about the view axis. It is a third rotational
+    // freedom the yaw/pitch orbit cannot reach, and it is what makes the
+    // azimuth fan lie flat on the screen instead of across a diagonal.
+    if(S.roll){
+      var cr = Math.cos(S.roll*RAD), sr = Math.sin(S.roll*RAD);
+      var rr = [r[0]*cr + u[0]*sr, r[1]*cr + u[1]*sr, r[2]*cr + u[2]*sr];
+      var uu = [u[0]*cr - r[0]*sr, u[1]*cr - r[1]*sr, u[2]*cr - r[2]*sr];
+      r = rr; u = uu;
+    }
     CAM.fwd=f; CAM.right=r; CAM.up=u;
 
     CAM.target = [0,0,0];
@@ -1608,7 +1624,7 @@
     document.getElementById("t-sum").textContent =
       (sc.eff && showR()) ? fmt(sc.eff.sum,3) : "—";
     document.getElementById("recentre").hidden =
-      S.uz === 1 && S.upx === 0 && S.upy === 0;
+      S.uz === 1 && S.upx === 0 && S.upy === 0 && S.roll === 0;
     paintProvenance(sc);
 
     document.getElementById("cap").innerHTML =
@@ -1898,7 +1914,9 @@
         mode:"pinch",
         cx:(a.x + b.x)/2, cy:(a.y + b.y)/2,
         dist:Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
-        uz:S.uz, upx:S.upx, upy:S.upy,
+        ang:Math.atan2(b.y - a.y, b.x - a.x),
+        uz:S.uz, upx:S.upx, upy:S.upy, roll:S.roll,
+        zoomOn:false, rollOn:false,
       };
     }else{
       gesture = null;
@@ -1924,6 +1942,27 @@
 
   function clampZoom(z){ return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z)); }
 
+  /** Signed shortest angle from b to a, so a twist through north does not jump. */
+  function angleDelta(a, b){
+    var d = a - b;
+    while(d > Math.PI) d -= 2*Math.PI;
+    while(d < -Math.PI) d += 2*Math.PI;
+    return d;
+  }
+
+  /**
+   * Re-zero every channel at the instant one of them engages.
+   *
+   * Without this, crossing a deadband applies the whole deadband at once and
+   * the scene jumps by 8% or 7 degrees. Re-zeroing all of them together, rather
+   * than only the one that fired, keeps the pan arithmetic on one consistent
+   * baseline -- zoomAbout reads g.cx, g.upx and g.uz as a set.
+   */
+  function rebasePinch(g, cx, cy, dist, ang){
+    g.cx = cx; g.cy = cy; g.dist = dist; g.ang = ang;
+    g.uz = S.uz; g.upx = S.upx; g.upy = S.upy; g.roll = S.roll;
+  }
+
   stage.addEventListener("pointerdown", function(e){
     if(e.target.closest("#toolbar") || e.target.closest("#sheet")) return;
     contacts.set(e.pointerId, local(e));
@@ -1943,13 +1982,31 @@
       S.yaw = gesture.yaw + (ps[0].x - gesture.x)*0.42;
       S.pitch = Math.max(-88, Math.min(88, gesture.pitch + (ps[0].y - gesture.y)*0.42));
     }else if(gesture.mode === "pinch" && ps.length >= 2){
+      var g = gesture;
       var a = ps[0], b = ps[1];
       var nd = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
       var ncx = (a.x + b.x)/2, ncy = (a.y + b.y)/2;
-      // Clamp first, then use the factor that was actually applied, or the pan
-      // drifts away from the fingers at the limits.
-      S.uz = clampZoom(gesture.uz*(nd/gesture.dist));
-      zoomAbout(gesture.cx, gesture.cy, ncx, ncy, S.uz/gesture.uz, gesture);
+      var nang = Math.atan2(b.y - a.y, b.x - a.x);
+
+      // Pan is always live -- the centroid moving IS the translation, and it
+      // has no meaningful deadband. Zoom and roll each have to be asked for.
+      if(!g.zoomOn && Math.abs(Math.log(nd/g.dist)) > Math.log(1 + ZOOM_DEADBAND)){
+        g.zoomOn = true;
+        rebasePinch(g, ncx, ncy, nd, nang);
+      }
+      if(!g.rollOn && Math.abs(angleDelta(nang, g.ang)) > ROLL_DEADBAND){
+        g.rollOn = true;
+        rebasePinch(g, ncx, ncy, nd, nang);
+      }
+
+      if(g.zoomOn){
+        // Clamp first, then use the factor that was actually applied, or the
+        // pan drifts away from the fingers at the limits.
+        S.uz = clampZoom(g.uz*(nd/g.dist));
+      }
+      if(g.rollOn) S.roll = g.roll + angleDelta(nang, g.ang)*DEG;
+
+      zoomAbout(g.cx, g.cy, ncx, ncy, S.uz/g.uz, g);
     }
     draw();
   });
@@ -2006,7 +2063,10 @@
     recentre();
   });
   function recentre(){
-    S.uz = 1; S.upx = 0; S.upy = 0;
+    // Roll goes with the framing, not with the orbit: nothing but the twist
+    // gesture ever produces it, so there is no other way back from an
+    // accidental one. Yaw and pitch stay -- the view presets own those.
+    S.uz = 1; S.upx = 0; S.upy = 0; S.roll = 0;
     draw();
   }
   document.getElementById("recentre").addEventListener("click", recentre);

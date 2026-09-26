@@ -121,8 +121,21 @@ xcrun simctl launch booted com.magmacrunch.gratinglab
 
 ## The viewer
 
-One finger orbits, two pinch and pan together, the wheel zooms about the cursor,
-and Recentre (or a double tap) clears the free transform. `S.uz/upx/upy` sit on
+One finger orbits. Two fingers carry three channels at once -- pan from the
+centroid, zoom from the separation, **roll from the twist** -- and the wheel
+zooms about the cursor. Recentre, or a double tap, clears all of it.
+
+Roll is a third rotational freedom the yaw/pitch orbit cannot reach, and it is
+what lets the azimuth fan lie flat on the screen instead of across a diagonal.
+
+**Each channel has a deadband, and that is what keeps them apart.** Two fingers
+never move in perfect sympathy, so without one a pan arrives carrying a few per
+cent of zoom and a degree or two of roll, and the gesture stops feeling like the
+one thing it was meant to be. Pan is always live; zoom needs 8% of separation
+and roll needs 7 degrees before either engages. Crossing a deadband re-zeroes
+**every** channel, not just the one that fired, because `zoomAbout` reads
+`g.cx`, `g.upx` and `g.uz` as one consistent baseline -- and rebasing stops the
+scene jumping by the whole deadband at the moment of engagement. `S.uz/upx/upy` sit on
 top of the fitted framing; the rim slider and the fit decide everything else, so
 Recentre never disturbs the orbit or the rim.
 
