@@ -203,6 +203,41 @@ That is also why this script sits in `ios/tools/` while `make-icon.py` sits in
 `scripts/`: the checker's contract names `ios/tools/`, and being covered by an
 existing guard beat keeping the two scripts together.
 
+## The Mac checkout
+
+There is a real clone at **`~/mc/gratinglab`** on the build host, beside
+`hypnopompia`, `george-boole`, `makemecookies` and `website` — the same flat
+layout the tree documents, so `ios/package.mjs` finds the pipeline at its second
+candidate `../hypnopompia` with no override. Work in Xcode from there:
+
+```bash
+ssh jakemccoy@100.81.70.91
+export PATH=/opt/homebrew/bin:$PATH          # node and npm are not on the
+cd ~/mc/gratinglab/ios                       # non-interactive PATH otherwise
+git -C .. pull && npm run sync && npm run open
+```
+
+**It authenticates with a read-only deploy key**, `~/.ssh/gratinglab_deploy`,
+reached through the `gratinglab.github.com` alias in `~/.ssh/config`. The Mac's
+own key is not registered with GitHub and the osxkeychain credential does not
+cover a private repo, so a plain HTTPS clone there fails asking for a username.
+Read-only is deliberate, following the rule in `dev\CLAUDE.md` that a deploy key
+suits a read of one repo: **pull on the Mac, push from the dev box.** Revoke it
+at the repo's Settings → Deploy keys.
+
+**Pull hypnopompia there too.** The Mac's copy was three commits behind and
+`package.mjs` died inside `createBuild` with
+`The "path" argument must be of type string` — the old pipeline resolved a
+website eagerly and joined an undefined `probe`, which is exactly the argument
+this app does not pass. The flat-layout resolution was working perfectly; the
+engine beside it was stale. A consumer that builds here and not there is the
+failure the tree's push-the-engine-first rule exists for, seen from the other
+end.
+
+Do not point `-derivedDataPath` inside the checkout. Xcode's own default is
+outside it; a scripted build that writes `ios/dd` leaves an untracked directory
+nothing ignores.
+
 ## Running it on the iOS simulator
 
 The Mac build host is `ssh jakemccoy@100.81.70.91` (the IP, not the hostname).
