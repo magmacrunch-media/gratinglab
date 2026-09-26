@@ -56,9 +56,10 @@ jobs:
         working-directory: gratinglab/ios
         run: npx cap sync ios
 
-      # A simulator build: no signing, no device. Package.resolved is not
-      # committed, because it can only be produced on a Mac; commit the one this
-      # job or Xcode generates if later builds should resolve what was verified.
+      # A simulator build: no signing, no device. Package.resolved IS committed
+      # -- generated on the Mac build host, which is the only place it can be --
+      # so this resolves the exact capacitor-swift-pm revision that was verified
+      # rather than whatever the version range admits on the day it runs.
       - name: xcodebuild
         working-directory: gratinglab/ios/App/App
         run: |
