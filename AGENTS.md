@@ -217,13 +217,24 @@ cd ~/mc/gratinglab/ios                       # non-interactive PATH otherwise
 git -C .. pull && npm run sync && npm run open
 ```
 
-**It authenticates with a read-only deploy key**, `~/.ssh/gratinglab_deploy`,
+**It authenticates with a read/write deploy key**, `~/.ssh/gratinglab_deploy`,
 reached through the `gratinglab.github.com` alias in `~/.ssh/config`. The Mac's
 own key is not registered with GitHub and the osxkeychain credential does not
 cover a private repo, so a plain HTTPS clone there fails asking for a username.
-Read-only is deliberate, following the rule in `dev\CLAUDE.md` that a deploy key
-suits a read of one repo: **pull on the Mac, push from the dev box.** Revoke it
-at the repo's Settings → Deploy keys.
+
+It started read-only, per the rule in `dev\CLAUDE.md` that a deploy key suits a
+read of one repo, and was widened so the Mac can commit its own work rather than
+round-tripping every change through the dev box. That rule is about CI reaching
+across repos; a developer's own machine is a different case. The key is still
+scoped to **this repo alone**, which is the part that matters, and revoking it is
+one click at the repo's Settings → Deploy keys.
+
+A deploy key cannot be edited in place: widening it means deleting the key and
+adding the same public key again with `read_only=false`, which changes its id.
+
+Commits made there are authored `magmacrunchmedia <magmacrunchmedia@gmail.com>`
+from the Mac's own global config, so they match the dev box and need no per-repo
+override. **Both machines can push now, so pull before working on either.**
 
 **Pull hypnopompia there too.** The Mac's copy was three commits behind and
 `package.mjs` died inside `createBuild` with
