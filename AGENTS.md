@@ -128,6 +128,28 @@ zooms about the cursor. Recentre, or a double tap, clears all of it.
 Roll is a third rotational freedom the yaw/pitch orbit cannot reach, and it is
 what lets the azimuth fan lie flat on the screen instead of across a diagonal.
 
+**The WebView will take two-finger input before the page ever sees it**, and
+that is the first thing to suspect when a gesture "does nothing". Three
+defences, all needed:
+
+- `maximum-scale=1, user-scalable=no` in the viewport meta. `touch-action`
+  alone has never been reliable against iOS pinch-zoom.
+- `touch-action:none` on **`#sky`**, not only on `#stage`. It is not inherited,
+  and the touch lands on the canvas.
+- `preventDefault` on `gesturestart`/`gesturechange`/`gestureend`, which WebKit
+  fires alongside the pointer events and which actually perform the page scale.
+
+The cost is that the page can no longer be pinch-zoomed as a document. That is
+right for the app, which has its own zoom on two axes, and it is the same trade
+every Capacitor app makes.
+
+**Synthetic PointerEvents cannot catch this.** Dispatching at the stage bypasses
+the browser's gesture handling entirely, so the harness proved the arithmetic
+and said nothing about whether a real finger ever arrives. Both were true at
+once for a while: the pinch anchor was measured correct -- two pinches about
+different points land 1100 device px apart -- while on the device two fingers
+did nothing at all.
+
 **Each channel has a deadband, and that is what keeps them apart.** Two fingers
 never move in perfect sympathy, so without one a pan arrives carrying a few per
 cent of zoom and a degree or two of roll, and the gesture stops feeling like the

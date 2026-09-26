@@ -3,7 +3,7 @@
      the >=900px desktop breakpoint fires on a phone: the rail sits beside the
      stage, scaled down to illegibility. viewport-fit=cover is what lets
      env(safe-area-inset-*) report real numbers. -->
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Cone of Diffraction</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -64,7 +64,9 @@
     touch-action:none; cursor:grab; overflow:hidden;
   }
   #stage.dragging{cursor:grabbing;}
-  #sky{display:block; width:100%; height:100%;}
+  /* touch-action is not inherited: the touch lands on this canvas, not on
+     #stage, so the canvas has to refuse the default behaviours itself. */
+  #sky{display:block; width:100%; height:100%; touch-action:none;}
   .stamp{
     position:absolute; left:calc(16px + var(--sal)); top:calc(14px + var(--sat));
     pointer-events:none; display:flex; flex-direction:column; gap:2px;
@@ -2103,6 +2105,19 @@
         });
     });
   });
+
+  // WebKit fires these for a two-finger pinch in addition to pointer events,
+  // and they are what actually scales the page when touch-action is not
+  // honoured. Refusing them is what leaves the gesture to the handlers above.
+  ["gesturestart", "gesturechange", "gestureend"].forEach(function(type){
+    stage.addEventListener(type, function(e){ e.preventDefault(); }, {passive:false});
+  });
+  // A double tap on iOS also means "zoom the page"; the viewer has its own
+  // meaning for it and the page must not act on the browser's.
+  document.addEventListener("dblclick", function(e){
+    if(e.target.closest("#sheet")) return;
+    e.preventDefault();
+  }, {passive:false});
 
   window.addEventListener("resize", resize);
   window.addEventListener("orientationchange", resize);
