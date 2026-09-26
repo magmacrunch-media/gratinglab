@@ -105,13 +105,12 @@
   /* Visible only while fingers are down. Two-finger gestures are invisible
      otherwise: there is no way to tell "the browser kept it" from "one finger
      landed on something that swallowed it". */
+  /* In the toolbar, not over the scene: it reports input state, which is what
+     a toolbar is for, and the illustration is the product. */
   #gesture-hint{
-    position:absolute; left:50%; transform:translateX(-50%);
-    bottom:calc(64px + var(--sab)); z-index:4; pointer-events:none;
-    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
-    letter-spacing:.08em; color:var(--ink-dim);
-    background:#0b1018cc; border:1px solid var(--rule); border-radius:999px;
-    padding:5px 12px; backdrop-filter:blur(6px);
+    flex:0 0 auto; pointer-events:none; white-space:nowrap;
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10.5px;
+    letter-spacing:.06em; color:var(--ink-faint);
   }
   #gesture-hint.idle{opacity:.45;}
   /* the dispersion strip takes the bottom of the stage when a band is open */
@@ -374,7 +373,6 @@
     <div id="striphost" hidden>
       <canvas id="strip"></canvas>
     </div>
-    <div id="gesture-hint" hidden></div>
     <div id="toolbar">
       <button type="button" id="sheetbtn" aria-expanded="false"
               aria-controls="sheet">Controls</button>
@@ -383,6 +381,7 @@
         <input type="range" id="rim" min="0" max="1000" value="0">
         <span class="mag" id="magv">1.0&times;</span>
       </div>
+      <div id="gesture-hint" hidden></div>
       <button type="button" id="recentre" hidden
               title="Put the view back (or double tap)">Recentre</button>
     </div>
@@ -2039,12 +2038,12 @@
         : (gesture && gesture.zoomOn ? "zoom" : "") +
           (gesture && gesture.rollOn ? (gesture.zoomOn ? " + roll" : "roll") : "") ||
           "pan";
-      el.textContent = k + (k === 1 ? " finger " : " fingers ") + "\u00b7 " + what;
+      el.textContent = k + "f \u00b7 " + what;
       el.classList.remove("idle");
     }else{
       // Stays after the gesture ends, on purpose: otherwise the evidence is
       // gone by the time anyone looks.
-      el.textContent = "max fingers seen: " + peakContacts;
+      el.textContent = "max " + peakContacts + "f";
       el.classList.add("idle");
     }
     el.hidden = false;
