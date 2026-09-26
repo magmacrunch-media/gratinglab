@@ -1,0 +1,93 @@
+gratinglab (the application)
+Copyright 2026 magmacrunch media
+
+
+THE LICENCE
+
+Everything written for this repository (app/index.html, the tools, the iOS
+packaging, the build files and the documentation) is licensed under the
+PolyForm Noncommercial License 1.0.0, in the LICENSE file beside this one.
+
+Read it, learn from it, build on it, run it. Any noncommercial purpose is
+permitted, and that includes personal projects, teaching and research. What
+is not permitted is commercial use: selling this application or a derivative
+of it, shipping it inside a product, or running it as part of a business.
+For a commercial licence, ask.
+
+Commercial rights stay here. PolyForm Noncommercial restricts what OTHERS
+may do. It places no limit on magmacrunch media, who may release this
+application commercially, including on an app store, or license it to
+someone else on other terms, at any time.
+
+This matches daffodil and hologram, and differs deliberately from
+magmacrunch's 2D engines (magnolia, adenosine, texastoast), which are
+Apache 2.0 and meant for unrestricted reuse.
+
+Note the choice here is about the PORT, not about the physics. The physics
+is gratinglab's and gratinglab is BSD-3-Clause, which is more permissive
+than this file. Nothing below is narrowed by anything above: if you want the
+solver under BSD-3 terms, take it from the package, which is public.
+
+
+THE PACKAGE THIS IS A PORT OF
+
+app/index.html contains a JavaScript port of the scalar (Kirchhoff /
+thin-element) solver from gratinglab, the Python package at
+https://github.com/jamccoy/gratinglab, which is the reference implementation
+and the source of truth for every formula here. The port is a derivative
+work of that package and its licence follows, retained under clause 1.
+
+  BSD 3-Clause License
+
+  Copyright (c) 2026, Jake McCoy
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+  3. Neither the name of the copyright holder nor the names of its
+     contributors may be used to endorse or promote products derived from
+     this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
+
+tools/fixture.json is reference output generated from that package's own
+ScalarSolver and committed here, so the conformance check needs node alone.
+
+
+THIRD-PARTY COMPONENTS
+
+The gold optical constants inlined in app/index.html, and re-embedded by
+tools/embed_materials.py, are an export of the CXRO / Henke, Gullikson and
+Davis atomic scattering factor tables (Atomic Data and Nuclear Data Tables
+54 (1993) 181-342), at https://henke.lbl.gov/optical_constants/.
+
+IBM Plex Sans and IBM Plex Mono, by IBM, vendored into the iOS bundle by
+ios/package.mjs from @fontsource and used under the SIL Open Font License
+1.1. The licence text ships beside the faces in the bundle.
+
+The iOS shell is built with Capacitor, by Ionic, under the MIT licence, and
+on hypnopompia's shared packaging pipeline, Copyright 2026 magmacrunch media.
+
+
+WHAT IS RESERVED OUTRIGHT
+
+The magmacrunch names and marks. The application's own name is not settled;
+gratinglab as a name belongs to the package it ports, and is used here
+because it is one project. Neither is covered by the software licence.

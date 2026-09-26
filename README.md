@@ -123,5 +123,13 @@ tools/embed_materials.py   re-embeds the Au table at full precision
 
 ## Licence
 
-The port and this application are © magmacrunch media. gratinglab is
-BSD-3-Clause by Jake McCoy; the optical constants are a CXRO/Henke export.
+This application is Copyright 2026 magmacrunch media, under the **PolyForm
+Noncommercial License 1.0.0** (`LICENSE`). Read it, learn from it, build on it,
+run it; commercial use needs a separate licence, so ask.
+
+The **physics is not narrowed by that**. It is gratinglab's, and gratinglab is
+BSD-3-Clause by Jake McCoy, which is the more permissive of the two: if you want
+the solver under BSD-3 terms, take it from
+[the package](https://github.com/jamccoy/gratinglab), which is public. `NOTICE`
+retains that licence, as clause 1 asks, and records the rest: the CXRO/Henke
+optical constants, IBM Plex under the OFL, and Capacitor under MIT.

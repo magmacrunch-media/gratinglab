@@ -107,10 +107,11 @@ the title runs under the Dynamic Island. `env()` only reports real numbers
 because the viewport meta carries `viewport-fit=cover` — the same meta whose
 absence broke the phone layout entirely.
 
-Building and running it on the simulator, from this machine:
+Building and running it on the simulator, from this machine. `$MACHOST` is the
+build host, which `dev\CLAUDE.md` names; this repo is public and does not:
 
 ```bash
-scp -r ios/App jakemccoy@100.81.70.91:~/glbuild/App
+scp -r ios/App "$MACHOST":~/glbuild/App
 # on the Mac, with DEVELOPER_DIR set (see below):
 cd ~/glbuild/App/App && xcodebuild -project App.xcodeproj -scheme App \
   -sdk iphonesimulator -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
@@ -246,14 +247,14 @@ layout the tree documents, so `ios/package.mjs` finds the pipeline at its second
 candidate `../hypnopompia` with no override. Work in Xcode from there:
 
 ```bash
-ssh jakemccoy@100.81.70.91
+ssh "$MACHOST"
 export PATH=/opt/homebrew/bin:$PATH          # node and npm are not on the
 cd ~/mc/gratinglab/ios                       # non-interactive PATH otherwise
 git -C .. pull && npm run sync && npm run open
 ```
 
-**It authenticates with a read/write deploy key**, `~/.ssh/gratinglab_deploy`,
-reached through the `gratinglab.github.com` alias in `~/.ssh/config`. The Mac's
+**It authenticates with a read/write deploy key** reached through the
+`gratinglab.github.com` alias in the Mac's `~/.ssh/config`. The Mac's
 own key is not registered with GitHub and the osxkeychain credential does not
 cover a private repo, so a plain HTTPS clone there fails asking for a username.
 
@@ -286,8 +287,8 @@ nothing ignores.
 
 ## Running it on the iOS simulator
 
-The Mac build host is `ssh jakemccoy@100.81.70.91` (the IP, not the hostname).
-Xcode is installed but `xcode-select` points at the Command Line Tools, so
+The Mac build host is reached by its IP rather than its hostname; `dev\CLAUDE.md`
+has the address. Xcode is installed but `xcode-select` points at the Command Line Tools, so
 `xcodebuild` and `simctl` both fail out of the box. Repointing it globally needs
 `sudo`; export the variable instead and change nothing on that machine:
 
@@ -299,7 +300,7 @@ There is no `ios/` project here yet, so the way to see the page on a phone is to
 serve `app/` on the Mac and open it in the simulator's Safari:
 
 ```bash
-scp app/index.html jakemccoy@100.81.70.91:/tmp/glserve/index.html
+scp app/index.html "$MACHOST":/tmp/glserve/index.html
 # on the Mac, with DEVELOPER_DIR set:
 xcrun simctl openurl booted "http://127.0.0.1:8799/index.html"
 xcrun simctl io booted screenshot /tmp/shot.png
