@@ -4,7 +4,10 @@
      stage, scaled down to illegibility. viewport-fit=cover is what lets
      env(safe-area-inset-*) report real numbers. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Cone of Diffraction</title>
+<!-- The APPLICATION's name. Cone of Diffraction is a section inside it, not
+     the whole of it, and its own heading is down in the stamp. The title
+     screen reads this rather than carrying a second copy. -->
+<title>grating lab</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
@@ -24,7 +27,10 @@
     --evanescent:#ff5470;
     --cone:#4a5670;
     --axis:#6b7794;
-    --zero:#95a2bb;
+    /* The undiffracted reference, and the brightest ray on the rim: it was
+       #95a2bb, DIMMER than an ordinary order, which put the one direction
+       you navigate by behind the ones you are measuring. */
+    --zero:#eef3ff;
     color-scheme: dark;
     /* In a browser the chrome provides these gaps. In the bundle there is no
        chrome and contentInset is "never", so the page owns them: without this
@@ -380,7 +386,322 @@
   @media (prefers-reduced-motion:reduce){
     *{transition:none !important;}
   }
+
+  /* ---- title, options, credits ------------------------------------- */
+  /*
+     The publisher block at the bottom is deliberately IDENTICAL to george-boole
+     and makemecookies, down to the 26x32 mark stacked over the name: that is
+     the constant across the family. Everything above it is this app's own, and
+     leans on the instrument rather than the arcade -- a mono wordmark, a gold
+     hairline, and a menu that reads like a terminal list. IBM Plex Mono is
+     already loaded for the numbers, so none of it costs a font.
+
+     Fixed rather than in flow, so the stage keeps its real size underneath and
+     the first measure()/fit happens against the layout the app will actually
+     have. An overlay that changed the box would make the opening frame fit to
+     the wrong rectangle and then jump on start. */
+  #title, .sheetish{
+    position:fixed; inset:0; z-index:60;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:var(--ground);
+    padding:calc(24px + var(--sat)) calc(20px + var(--sar))
+            calc(24px + var(--sab)) calc(20px + var(--sal));
+  }
+  #title[hidden], .sheetish[hidden]{display:none;}
+  .title-inner{
+    display:flex; flex-direction:column; align-items:center; gap:38px;
+    text-align:center; max-width:460px; width:100%;
+  }
+  .title-name{
+    margin:0; font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-weight:500; font-size:clamp(23px,6.4vw,34px); line-height:1.15;
+    letter-spacing:.2em; text-indent:.2em;      /* tracking pads the right edge only */
+    text-transform:uppercase; color:var(--ink);
+  }
+  /* The house gold, as a rule rather than as type: it marks the wordmark
+     without competing with the one gold thing in the scene, the blaze order. */
+  #title-art{display:block; width:100%; height:150px; margin:0 auto 6px;}
+  /* The rule was flat gold. A grating's output is not one colour, so this is
+     the same ramp the dispersion strip uses, run across 62 pixels. */
+  .title-rule{
+    width:62px; height:2px; margin:15px auto 0; opacity:.9;
+    background:linear-gradient(90deg,#6f7dff 0%,#4dc4ff 50%,#ffc233 100%);
+  }
+  .title-tag{
+    margin:14px 0 0; font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:12px; letter-spacing:.06em; color:var(--ink-dim);
+  }
+  .title-choices{display:flex; flex-direction:column; gap:10px; width:min(280px,100%);}
+  .title-btn{
+    appearance:none; cursor:pointer; font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:13px; letter-spacing:.08em; text-align:left;
+    color:var(--ink); background:#131c2e; border:1px solid var(--rule);
+    border-radius:8px; padding:13px 16px 13px 34px; position:relative;
+  }
+  /* A permanent list marker, not a hover reveal.
+
+     Written as the character rather than as a CSS escape on purpose: the
+     escape went through a shell heredoc that ate the backslash and left
+     content:"<U+0083>A", so the menu grew a control character and a letter A
+     under the pointer. dev\CLAUDE.md warns about exactly this; the fix is
+     to write such content with an editor, never a heredoc.
+
+     Always-on also fixes the behaviour it was meant to have. Appearing only
+     under the pointer made it read as a state the item was in rather than as
+     punctuation, and left one stuck on whichever item the focus landed on
+     after a back. Hover now only brightens it, which is what hover should
+     say: this is the one under you. */
+  .title-btn::before{
+    content:"›"; position:absolute; left:16px; top:50%;
+    transform:translateY(-50%); color:var(--ink-faint);
+  }
+  .title-btn:hover, .title-btn:focus-visible{border-color:#3d4c6d; background:#182339;}
+  .title-btn:hover::before, .title-btn:focus-visible::before{color:var(--blaze);}
+  .title-btn:focus-visible{outline:2px solid var(--order); outline-offset:3px;}
+  .title-btn.primary{
+    color:var(--ground); background:var(--blaze); border-color:var(--blaze);
+    font-weight:600;
+  }
+  .title-btn.primary:hover, .title-btn.primary:focus-visible{background:#ffd066; border-color:#ffd066;}
+  .title-btn.primary::before,
+  .title-btn.primary:hover::before,
+  .title-btn.primary:focus-visible::before{color:var(--ground); opacity:.7;}
+
+  .title-publisher{
+    position:absolute; left:0; right:0; bottom:calc(20px + var(--sab));
+    display:flex; justify-content:center; pointer-events:none;
+  }
+  /* Lowercase, like every other app in the family: the mark is set as written
+     in the markup and nothing upper-cases it there either. */
+  .title-publisher-link{
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    text-decoration:none; pointer-events:auto;
+    color:var(--ink-faint); font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:10px; letter-spacing:.18em;
+  }
+  .title-publisher-link:hover{color:var(--ink-dim);}
+  .title-publisher-mark{display:block; width:26px; height:32px; opacity:.55;}
+  .title-publisher-link:hover .title-publisher-mark{opacity:.8;}
+
+  /* options and credits share a panel */
+  .sheetish{justify-content:flex-start;}
+  .sheetish-inner{
+    max-width:480px; width:100%; margin:auto 0; overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .sheetish-inner h3{
+    display:flex; align-items:center; gap:10px; margin:0 0 22px;
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-weight:500;
+    font-size:14px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink);
+  }
+  .sheetish-inner h3::after{
+    content:""; flex:1 1 auto; height:1px; background:var(--rule);
+  }
+  .credits-mark{display:block; width:26px; height:32px;}
+  .sheetish-inner p{
+    margin:0 0 16px; font-size:13px; line-height:1.55; color:var(--ink-dim);
+  }
+  .sheetish-inner strong{color:var(--ink); font-weight:500;}
+  .sheetish-inner a{color:var(--order);}
+  .sheetish-btn-row{margin-top:26px; display:flex;}
+  .sheetish-btn-row .title-btn{width:min(160px,100%);}
+
+  .opt{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px;}
+  .opt-name{
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
+    letter-spacing:.12em; text-transform:uppercase; color:var(--ink-dim);
+  }
+  .opt-val{
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
+    color:var(--ink-faint); text-align:right; min-width:58px;
+  }
+  .opt-lead{
+    margin:0 0 20px; font-size:12.5px; line-height:1.55; color:var(--ink-dim);
+  }
+  .axnames{display:flex; gap:6px;}
+  .axnames input{
+    width:100%; min-width:0; appearance:none;
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:13px;
+    text-align:center; color:var(--ink); background:#131c2e;
+    border:1px solid var(--rule); border-radius:6px; padding:7px 4px;
+  }
+  .axnames input:focus-visible{outline:2px solid var(--order); outline-offset:2px;}
+  .opt + .opt{margin-top:12px;}
+  .opt-note{
+    margin:12px 0 0; font-size:12px; line-height:1.5; color:var(--ink-faint);
+  }
+  .kvec{
+    margin:16px 0 0; padding:14px 16px; border:1px solid var(--rule);
+    border-radius:8px; background:#101827; overflow-x:auto;
+  }
+  .kvec p{margin:0;}
+  .kvec-expr{ color:var(--ink); }
+  /* MathML picks a math font of its own, which is the point: an equation
+     should not be set in the interface's typeface. Only the size and colour
+     are ours. */
+  math{ font-size:1.06em; color:inherit; }
+  .kvec math{ font-size:16px; }
+  /* No fraction in the caption, so the baseline aligns on its own and the only
+     adjustment wanted is a touch of size: a math font's x-height runs smaller
+     than IBM Plex's at the same em. */
+  #cap math{ font-size:1.14em; }
+  .kvec-num{
+    margin-top:9px !important; font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:11.5px; color:var(--ink-faint); white-space:nowrap;
+    font-variant-numeric:tabular-nums;
+  }
 </style>
+
+<!-- The title screen, in the shape george-boole and crunchscope already use,
+     so the family reads as one.
+
+     THE NAME IS NOT WRITTEN HERE. It is read from document.title at startup.
+     "Cone of Diffraction" is a SECTION inside this application, not the whole
+     of it, and it keeps its own heading down in the stamp; the application is
+     called grating lab. Two names now, so each gets exactly one home and the
+     title screen reads rather than repeats. -->
+<div id="title" role="dialog" aria-modal="true" aria-labelledby="title-name">
+  <div class="title-inner">
+    <div class="title-main">
+      <canvas id="title-art" aria-hidden="true"></canvas>
+      <h1 class="title-name" id="title-name"></h1>
+      <div class="title-rule" aria-hidden="true"></div>
+      <p class="title-tag">diffraction geometry, to scale</p>
+    </div>
+    <nav class="title-choices">
+      <button type="button" id="title-start" class="title-btn primary">cone of diffraction</button>
+      <button type="button" id="title-options" class="title-btn">options</button>
+      <button type="button" id="title-credits" class="title-btn">credits</button>
+    </nav>
+  </div>
+  <!-- Outside .title-inner so it pins to the bottom edge rather than following
+       the centred block, and quiet enough that the first choice stays the only
+       thing asking to be pressed. The mark sits ABOVE the name rather than
+       beside it: stacked, it reads as a signature block instead of a line of
+       text with a bullet in front of it, which is the call george-boole and
+       makemecookies both landed on. -->
+  <div class="title-publisher">
+    <a class="title-publisher-link" href="https://magmacrunch.com">
+      <img class="title-publisher-mark" src="img/mc-logo.png" alt="" width="26" height="32">
+      <span>magmacrunch media</span>
+    </a>
+  </div>
+</div>
+
+<div id="options" class="sheetish" role="dialog" aria-modal="true" aria-labelledby="options-head" hidden>
+  <div class="sheetish-inner">
+    <h3 id="options-head">options</h3>
+
+    <p class="opt-lead">Spelling only. None of this changes a ray, an angle or
+      an efficiency; it changes what they are called.</p>
+
+    <div class="opt">
+      <span class="opt-name">axes</span>
+      <div class="axnames">
+        <input type="text" id="ax-0" maxlength="4" aria-label="name for the dispersion axis">
+        <input type="text" id="ax-1" maxlength="4" aria-label="name for the normal axis">
+        <input type="text" id="ax-2" maxlength="4" aria-label="name for the groove axis">
+      </div>
+      <span class="opt-val">disp&nbsp;&middot;&nbsp;norm&nbsp;&middot;&nbsp;groove</span>
+    </div>
+
+    <div class="opt">
+      <span class="opt-name">period</span>
+      <div class="seg" id="periodseg">
+        <button type="button" data-v="p">p</button>
+        <button type="button" data-v="d">d</button>
+        <button type="button" data-v="sigma">&sigma;</button>
+      </div>
+      <span class="opt-val" id="v-periodsym"></span>
+    </div>
+
+    <div class="opt">
+      <span class="opt-name">incidence</span>
+      <div class="seg" id="incseg">
+        <button type="button" data-v="alpha">&alpha;</button>
+        <button type="button" data-v="theta">&theta;</button>
+      </div>
+      <span class="opt-val" id="v-incsym"></span>
+    </div>
+
+    <!-- gamma is the polar angle from the groove axis; 90 - gamma is the
+         elevation from the dispersion plane, and sin of it is cos gamma. Both
+         describe the same cone. -->
+    <div class="opt">
+      <span class="opt-name">cone</span>
+      <div class="seg" id="coneseg">
+        <button type="button" data-v="gamma">&gamma;</button>
+        <button type="button" data-v="phi">90&deg;&minus;&gamma;</button>
+      </div>
+      <span class="opt-val" id="v-conesym"></span>
+    </div>
+
+    <!-- The operator between the two sines. beta_shown = -beta_computed: the
+         rays do not move, the printed number changes sign. -->
+    <div class="opt">
+      <span class="opt-name">sign</span>
+      <div class="seg" id="signseg">
+        <button type="button" data-v="1">sin&nbsp;+&nbsp;sin</button>
+        <button type="button" data-v="-1">sin&nbsp;&minus;&nbsp;sin</button>
+      </div>
+      <span class="opt-val" id="v-signsym"></span>
+    </div>
+    <p class="opt-note" id="conv-note"></p>
+
+    <!-- The incident wave vector in full, because the sign conventions ARE the
+         vector. The thesis factors the minus out in front of the bracket and
+         conventions.md writes it into each component; they are the same k, and
+         seeing both written with the current angles is worth more than being
+         told so. It also carries the trap the axes setting turns on: k_z is
+         +k cos gamma along z-hat, and g-hat is -z-hat, so that third term
+         changes sign with the notation and nothing else does. -->
+    <div class="opt">
+      <span class="opt-name">k&#770;<sub>i</sub></span>
+      <div class="seg" id="kformseg">
+        <button type="button" data-v="expanded">k[&minus;&hellip;]</button>
+        <button type="button" data-v="factored">&minus;k[&hellip;]</button>
+      </div>
+      <span class="opt-val" id="v-kform"></span>
+    </div>
+    <div class="kvec">
+      <p class="kvec-expr" id="kvec-expr"></p>
+      <p class="kvec-num" id="kvec-num"></p>
+    </div>
+    <p class="opt-note" id="kform-note"></p>
+
+    <div class="sheetish-btn-row">
+      <button type="button" id="options-back" class="title-btn">back</button>
+    </div>
+  </div>
+</div>
+
+<div id="credits" class="sheetish" role="dialog" aria-modal="true" aria-labelledby="credits-head" hidden>
+  <div class="sheetish-inner">
+    <h3 id="credits-head"><img class="credits-mark" src="img/mc-logo.png" alt="" width="26" height="32">credits</h3>
+
+    <p><strong>application by:</strong><br>Jake A. McCoy for <a href="https://magmacrunch.com">magmacrunch media</a></p>
+
+    <!-- The package is the source of truth for every formula, it is a separate
+         repository on a separate account, and it is BSD-3. Saying so here is
+         the same obligation NOTICE carries, in the one place a reader of the
+         application will actually meet it. -->
+    <p><strong>physics:</strong><br>a port of the scalar solver from
+      <a href="https://github.com/jamccoy/gratinglab">gratinglab</a>, BSD-3-Clause,
+      which remains the reference implementation</p>
+
+    <p><strong>built with:</strong><br>HTML5 canvas and vanilla JavaScript &middot;
+      IBM Plex by IBM &middot; Capacitor by Ionic &middot;
+      <a href="https://github.com/magmacrunch-media/hypnopompia">hypnopompia</a></p>
+
+    <p><strong>licence:</strong><br>PolyForm Noncommercial 1.0.0. The physics is
+      not narrowed by that: take the solver from the package, which is public.</p>
+
+    <div class="sheetish-btn-row">
+      <button type="button" id="credits-back" class="title-btn">back</button>
+    </div>
+  </div>
+</div>
+
 
 <div id="app">
   <div id="stage">
@@ -400,12 +721,12 @@
     </div>
     <div id="toolbar">
       <div class="phys cone-only">
-        <label for="k-gamma">&gamma;</label>
+        <label for="k-gamma" id="lab-gamma">&gamma;</label>
         <input type="range" id="k-gamma" min="0" max="1000" value="0">
         <span class="val" id="v-gamma"></span>
       </div>
       <div class="phys cone-only">
-        <label for="k-alpha">&alpha;</label>
+        <label for="k-alpha" id="lab-alpha">&alpha;</label>
         <input type="range" id="k-alpha" min="-800" max="800" value="250">
         <span class="val" id="v-alpha"></span>
       </div>
@@ -511,7 +832,7 @@
         <span class="val" id="v-band"></span>
       </div>
       <div class="knob">
-        <span class="name">p period</span>
+        <span class="name" id="lab-period">p period</span>
         <input type="range" id="k-period" min="1000" max="12000" value="3152">
         <span class="val" id="v-period"></span>
       </div>
@@ -564,6 +885,11 @@
   var S = {
     period:315.15, alpha:25, gamma:1.5, lambda:3, blaze:29.5, band:0, coating:true,
     branch:"R", reflModel:"local", mode:"geometry", mount:"cone",
+    kform:"expanded",
+    // How the same numbers are SPELLED. Nothing in here may reach the physics
+    // -- see the conventions block for why that is a hard rule and not a
+    // preference.
+    conv:{ax:["x","y","z"], period:"p", inc:"alpha", cone:"gamma", betaSign:1},
     // The free transform, applied over the fitted framing. Reset by Recentre
     // and by a double tap; the fit and the rim slider decide everything else.
     uz:1, upx:0, upy:0, roll:0,
@@ -1028,6 +1354,53 @@
   // display state, and tools/check.mjs evaluates that block on its own.
   //: The grating equation alone, or the groove model on top of it.
   function geometryOnly(){ return S.mode === "geometry"; }
+
+  // ---- the frame -------------------------------------------------------
+  // x along the periodicity, y the surface normal, z along the grooves: the
+  // thesis's own labels, and the ones this app uses everywhere.
+  //
+  // gratinglab's conventions.md writes the same three as d-hat, n-hat, g-hat,
+  // and that spelling was briefly a setting here. It is gratinglab's own rather
+  // than a convention anybody else uses, so it is gone. The mapping is still
+  // worth having when reading the package: x = d, y = n, and z = -g. That last
+  // one differs in SIGN, which is why the cone opens along +z and along -g-hat.
+  // ---- conventions -----------------------------------------------------
+  //
+  // Everything below changes how a number is SPELLED and never what it is.
+  // That is a hard rule rather than a style: tools/check.mjs slices the physics
+  // block out of this file by text and holds it to fixture.json at 1e-9, so a
+  // convention that reached sinBeta or orderRange would break the fixture. The
+  // guard would catch it; the design is that it cannot arise, because every
+  // convention is applied on the way OUT, to labels and readouts.
+  //
+  // The sharpest case is the sign convention. sin a + sin b against
+  // sin a - sin b is beta_shown = -beta_computed: the rays do not move, only
+  // the printed number changes sign. If a ray moves, it is not a convention.
+  //
+  // On the names, measured rather than assumed (ISO 80000-2, pole along +z,
+  // the groove axis): gamma IS the polar angle exactly, and alpha IS an
+  // azimuth, just referenced from +y toward +x instead of from +x toward +y,
+  // which is a 90 degree offset and the opposite sense -- phi_std = -(90+alpha).
+  // So the app says what each angle is measured FROM and leaves "polar" and
+  // "azimuthal" to the provenance, where there is room to be exact.
+  //
+  // 90 - gamma is the ELEVATION, the complement of the polar angle, not an
+  // azimuth. It is a real and useful parameter (sin of it is cos gamma, so
+  // k_z = k sin phi) and it is offered; it is simply not an azimuth.
+  var PERIOD_SYM = {p:"p", d:"d", sigma:"\u03c3"};
+  var INC_SYM    = {alpha:"\u03b1", theta:"\u03b8"};
+  function symPeriod(){ return PERIOD_SYM[S.conv.period] || "p"; }
+  function symInc(){ return INC_SYM[S.conv.inc] || "\u03b1"; }
+  function symCone(){ return S.conv.cone === "phi" ? "\u03c6" : "\u03b3"; }
+  function coneValue(){ return S.conv.cone === "phi" ? 90 - S.gamma : S.gamma; }
+  function axName(i){
+    var v = (S.conv.ax[i] || "").trim();
+    return v || ["x","y","z"][i];
+  }
+  function axHat(i){ return axName(i) + "\u0302"; }
+  function betaShown(deg){ return S.conv.betaSign * deg; }
+  // The operator between the two sines, which is the whole of the convention.
+  function betaOp(){ return S.conv.betaSign > 0 ? "+" : "\u2212"; }
   function showR(){ return S.branch !== "T"; }
   function showT(){ return S.branch !== "R"; }
 
@@ -1122,15 +1495,27 @@
         body:"The exact off-plane mount. \u03b1 = 0, \u03c6 = 0 and \u03b7 = \u03b3 are the same "+
              "statement: sin \u03b7 = sin \u03b3 cos \u03b1 collapses to sin \u03b7 = sin \u03b3, and the "+
              "stage's pitch is the cone's half-angle. The beam lies in the plane of the "+
-             "grooves and the normal, so the orders come out symmetric about n\u0302." +
+             "grooves and the normal, so the orders come out symmetric about " +
+             axHat(1) + "." +
              (normalIncidence()
                ? " This is the far end of that line, where the cone has opened flat: "+
-                 "k\u0302\u1d62 = \u2212n\u0302, the grating equation reduces to sin \u03b2_m = m\u03bb/p, and "+
+                 "k\u0302\u1d62 = \u2212" + axHat(1) + ", the grating equation reduces to sin \u03b2_m = m\u03bb/p, and "+
                  "the azimuth stops existing. \u03b7 = 90\u00b0 leaves the beam no projection in "+
                  "the surface, so every yaw gives this same geometry and the yaw knob has "+
                  "nothing to turn."
                : "")});
     }
+    out.push({level:"note", mark:axName(0) + axName(1) + axName(2),
+      title:"x dispersion \u00b7 y normal \u00b7 z groove",
+      body:"x\u0302 along the periodicity, y\u0302 the surface "+
+           "normal, z\u0302 along the grooves. So the grating lies in the x\u2013z plane, its "+
+           "surface is y = 0, and the grating vector K = 2\u03c0/p points along +x\u0302, "+
+           "which is why the orders spread in x and the whole of diffraction here is "+
+           "k\u0302_m = k\u0302\u1d62 + mK/k. gratinglab's conventions.md writes the same three as "+
+           "d\u0302, n\u0302 and g\u0302, and they map straight across: x\u0302 = d\u0302, y\u0302 = n\u0302, "+
+           "z\u0302 = \u2212g\u0302. Note that last sign. Every wave vector carries "+
+           "k_z = +k cos \u03b3, so the cone opens along +z\u0302, which is \u2212g\u0302 and not g\u0302; "+
+           "the z axis is drawn that way for exactly that reason."});
     out.push({level:"note", mark:"\u25cb",
       title:"all orders on one cone of half-angle \u03b3",
       body:"Light arrives almost along the grooves, so every diffracted order leaves at the same angle \u03b3 to the groove axis and they all lie on one cone. What separates them is \u03b2, their direction around that cone, which is what the grating equation returns and what a detector is set to. In this mount the orders run from \u03b2 = " + (sc.betaLo!=null ? fmt(sc.betaLo,1)+"\u00b0" : "\u2014") + " to " + (sc.betaHi!=null ? fmt(sc.betaHi,1)+"\u00b0" : "\u2014") + ", which is why they land on an arc rather than a line."});
@@ -1465,6 +1850,15 @@
     ctx.save(); ctx.fillStyle=color;
     ctx.beginPath(); ctx.arc(p[0],p[1],r,0,Math.PI*2); ctx.fill(); ctx.restore();
   }
+  // A halo, for marking one point out from its neighbours WITHOUT touching its
+  // size. In the efficiency view a dot's radius and a ray's width are both the
+  // efficiency, so emphasis has to arrive as something that is not either.
+  function ringAt(pt,color,r,w,alpha){
+    var p=proj(pt);
+    ctx.save(); ctx.globalAlpha = alpha==null?1:alpha;
+    ctx.strokeStyle=color; ctx.lineWidth=w||1;
+    ctx.beginPath(); ctx.arc(p[0],p[1],r,0,Math.PI*2); ctx.stroke(); ctx.restore();
+  }
   function label(pt,text,color,dx,dy,size){
     var p=proj(pt);
     ctx.save();
@@ -1563,11 +1957,48 @@
     }
     poly(rimPts, "#6b7794", 1.25, 0.85);
 
-    // --- axes
-    var AX=0.42;
-    line(O,[AX,0,0],"#6b7794",1,[3,4],0.75); label([AX,0,0],"d","#8b97b0",7,0,11);
-    line(O,[0,AX,0],"#0a7d28",1.2,null,0.85); label([0,AX,0],"n","#3fbf5e",7,0,11);
-    line(O,[0,0,-AX],"#6b7794",1,[3,4],0.75); label([0,0,-AX],"g","#8b97b0",7,0,11);
+    // --- the x diameter of the rim, which is one line wearing three hats:
+    //
+    //   * it is the x axis carried out to the rim plane;
+    //   * its ends are sin beta = +/-1, so the evanescent stubs sit on it and
+    //     it is the passing-off boundary;
+    //   * beta_T = pi - beta_R leaves sin beta alone and flips cos beta, so a
+    //     transmitted order is its reflected twin with the y component negated
+    //     -- a reflection through the SURFACE, which on this rim is a
+    //     reflection across this diameter.
+    //
+    // The third explains the second. cos beta goes through zero at the ends, so
+    // where an order passes off the reflected and transmitted directions
+    // coincide: the two branches MEET on this line. That is the picture behind
+    // "an order propagates in reflection and transmission together, or in
+    // neither", which the app has until now only asserted.
+    //
+    // Drawn always, because the first two hats do not depend on the branch, and
+    // it is what ties the two red stubs together instead of leaving them as a
+    // pair of unexplained dots. Named only when the mirror is on screen.
+    var EV = 1.16;                    // matches where the evanescent stubs go
+    line([-sg*EV,0,cg], [sg*EV,0,cg], "#6b7794", 1, [6,5], 0.45);
+    if(showR() && showT()) label([sg*EV,0,cg], "mirror", "#6b7794", 6, -8, 9.5);
+
+    // --- axes: x dispersion, y normal, z groove.
+    //
+    // This is the thesis's own frame (Chapter 2: "x-hat is the grating-
+    // dispersion direction, y-hat is the cross-dispersion direction, and z-hat
+    // is the groove direction") and for a ruling of parallel grooves it is
+    // simpler than carrying d-hat/n-hat/g-hat. conventions.md's vectors map
+    // straight onto it: x-hat = d-hat, y-hat = n-hat, z-hat = -g-hat. So the
+    // grating lies in the x-z PLANE, the surface is y = 0, and the grating
+    // vector K = 2 pi / p points along +x.
+    //
+    // z is drawn toward +z, which is where the cone opens and where every
+    // k_z = +k cos gamma points. The old axis pointed at -z, correct for g-hat
+    // and confusing beside a cone going the other way -- that sign is the one
+    // conventions.md warns about most loudly, so it is better shown than
+    // described.
+    var AX=0.42, zAx=[0,0,AX];
+    line(O,[AX,0,0],"#6b7794",1,[3,4],0.75); label([AX,0,0],axName(0),"#8b97b0",7,0,11);
+    line(O,[0,AX,0],"#0a7d28",1.2,null,0.85); label([0,AX,0],axName(1),"#3fbf5e",7,0,11);
+    line(O,zAx,"#6b7794",1,[3,4],0.75); label(zAx,axName(2),"#8b97b0",7,0,11);
 
     drawPatch();
 
@@ -1593,27 +2024,43 @@
         dotAt([sgn*sg*1.16, 0.0, cg], "#ff5470", 2.2);
         continue;
       }
-      var wantLabel = (liveIdx % labelStep === 0 && S.rim > 0.12) || mk.blaze;
-      var labelAlpha = mk.blaze ? 1 : Math.min(1,(S.rim-0.12)/0.22);
+      // m = 0 and the blaze order are the two the eye navigates by, so both
+      // are labelled whatever the label budget and whatever the zoom. The
+      // blaze one only exists in the efficiency view, because the geometry
+      // caption promises every propagating order is drawn alike and a groove
+      // profile is not modelled there.
+      var leads = mk.m === 0 || (mk.blaze && !geometryOnly());
+      var wantLabel = (liveIdx % labelStep === 0 && S.rim > 0.12) || leads;
+      var labelAlpha = leads ? 1 : Math.min(1,(S.rim-0.12)/0.22);
       var tag = (mk.m>0?"+":"")+mk.m;
 
       if(showR()){
         var k = kvec(mk.beta);
         var col = (mk.blaze && !geometryOnly()) ? "#ffc233"
-                : (mk.m===0 ? "#95a2bb" : "#4dc4ff");
+                : (mk.m===0 ? "#eef3ff" : "#4dc4ff");
         // Ray weight IS the efficiency: sqrt so a weak order still reads as
         // present rather than vanishing, which would look like passing off.
         // In the geometry view every propagating order is equally real, so
         // weighting them by an efficiency nobody asked for would be a claim.
         var rel = (!geometryOnly() && sc.eff && sc.eff.emax>0 && mk.eff!=null)
           ? Math.sqrt(mk.eff/sc.eff.emax) : 0.62;
-        line(O, k, col, 0.7 + 3.4*rel, null, 0.22 + 0.78*rel);
+        var a = 0.22 + 0.78*rel;
+        // The LINES are the connectors and the DOTS are the information: where
+        // an order lands is the rim point, not the path back to the apex, and
+        // at rim focus every line converges off-screen anyway. So the ordinary
+        // orders lose line opacity and keep their dot at full. That is what
+        // stops this reading as the passing-off hazard above: a faint order is
+        // still a full-strength dot on the rim, which a vanishing one is not.
+        line(O, k, col, 0.7 + 3.4*rel, null, leads ? a : a*0.5);
         dotAt(k, col, 1.8 + 3.2*rel);
+        // A halo rather than a bigger dot, so zero stands out without claiming
+        // an efficiency it does not have.
+        if(mk.m === 0) ringAt(k, col, 4.6 + 3.2*rel, 1.1, 0.85);
         if(wantLabel){
           ctx.save(); ctx.globalAlpha = labelAlpha;
           // With the rim in focus there is room for the angle itself, which
           // is the number being looked for.
-          label(k, S.rim > 0.5 ? tag + "  " + fmt(mk.beta*DEG,1) + "\u00b0" : tag,
+          label(k, S.rim > 0.5 ? tag + "  " + fmt(betaShown(mk.beta*DEG),1) + "\u00b0" : tag,
                 col, 8, -1, 11.5);
           ctx.restore();
           labelled++;
@@ -1625,9 +2072,12 @@
         // reflection-grating model, so there is no transmitted efficiency to
         // encode -- and a solid ray of varying weight would read as one.
         var kt = kvec(betaTransmitted(mk.beta));
-        var colT = mk.m===0 ? "#7d8aa6" : "#b07cff";
-        line(O, kt, colT, 1.4, [5,4], 0.78);
+        // Zero keeps its identity across the branch: the same near-white, one
+        // step down so the dashes still read as the transmitted side.
+        var colT = mk.m===0 ? "#c6d2e8" : "#b07cff";
+        line(O, kt, colT, 1.4, [5,4], mk.m===0 ? 0.85 : 0.5);
         dotAt(kt, colT, 2.6);
+        if(mk.m === 0) ringAt(kt, colT, 5.4, 1.1, 0.8);
         if(wantLabel){
           ctx.save(); ctx.globalAlpha = labelAlpha;
           label(kt, tag, colT, 8, -1, 11.5);
@@ -1656,8 +2106,10 @@
     //     defines it. Drawn between the cone axis and a generator at true
     //     scale: at 1.5 degrees it is nearly a closed pair of lines, and
     //     that is the fact this view exists to show.
+    // Its reference leg is the z axis, drawn above, longer than GR and
+    // collinear with it, so drawing one here too would be a second dashed line
+    // on top of the first.
     var GR = 0.38, gam = S.gamma*RAD, arc = [];
-    line(O, [0,0,GR], "#6b7794", 1, [4,4], 0.55);
     line(O, [0, GR*Math.sin(gam), GR*Math.cos(gam)], "#6b7794", 1, [4,4], 0.55);
     for(i=0;i<=24;i++){
       var gt = gam*i/24;
@@ -1665,7 +2117,7 @@
     }
     poly(arc, "#8b97b0", 1.3, 0.9);
     label([0, GR*Math.sin(gam/2), GR*Math.cos(gam/2)],
-          "\u03b3 " + fmt(S.gamma,2) + "\u00b0", "#b9c4da", 11, -7, 11.5);
+          symCone() + " " + fmt(coneValue(),2) + "\u00b0", "#b9c4da", 11, -7, 11.5);
 
     // alpha, the azimuth of incidence. gamma opens the cone; alpha turns the
     // light around it, and between them they are the whole mount -- but the
@@ -1692,12 +2144,24 @@
     var direct = kvec(Math.PI + alp), axisPt = [0,0,cg];
     line(O, direct, "#8fa3c8", 1, [5,5], 0.5);
     dotAt(direct, "#8fa3c8", 2.2);
+    // The TRANSMITTED ZEROTH ORDER is this ray. beta_T = pi - beta_0 =
+    // pi - (-alpha) = pi + alpha, which is k-hat_i continued straight through,
+    // so the undeviated beam and transmitted m = 0 are one direction and not
+    // two. In the reflected view it is therefore already drawn and only its
+    // identity is missing, which is what this marks: the order loop does not
+    // run the transmitted branch in that mode, so it cannot do it there.
+    // Direction only, like every transmitted ray -- no width, no efficiency.
+    if(!showT()){
+      dotAt(direct, "#c6d2e8", 2.6);
+      ringAt(direct, "#c6d2e8", 5.4, 1.1, 0.8);
+      label(direct, "0 T", "#c6d2e8", 8, -1, 11.5);
+    }
     line(axisPt, kvec(Math.PI), "#6b7794", 1, [4,4], 0.5);
     line(axisPt, direct, "#6b7794", 1, [4,4], 0.5);
     for(i=0;i<=32;i++) aarc.push(kvec(Math.PI + alp*i/32));
     poly(aarc, "#8b97b0", 1.3, 0.9);
     label(kvec(Math.PI + alp/2),
-          "\u03b1 " + fmt(S.alpha,1) + "\u00b0", "#b9c4da", 10, -6, 11.5);
+          symInc() + " " + fmt(S.alpha,1) + "\u00b0", "#b9c4da", 10, -6, 11.5);
 
     paintReadout(sc);
     drawStrip(sc);
@@ -1750,7 +2214,9 @@
       sctx.strokeStyle="#1b2436";
       sctx.beginPath(); sctx.moveTo(x,T-6); sctx.lineTo(x,BOT+2); sctx.stroke();
       sctx.textAlign = i===0?"left":(i===nTick?"right":"center");
-      sctx.fillText(bd.toFixed(bd===Math.round(bd)?0:1)+"°", x, BOT+7);
+      // Position is geometry and does not move; the printed value does.
+      var bl = betaShown(bd);
+      sctx.fillText(bl.toFixed(bl===Math.round(bl)?0:1)+"°", x, BOT+7);
     }
     sctx.textAlign="left";
     sctx.fillText("β", 14, BOT+7);
@@ -1825,8 +2291,8 @@
     // Grooves per mm, not a period in nm: it is what gratings are specified
     // and ordered by, and 3173 is recognisable where 315.15 is not.
     document.getElementById("config").textContent =
-      fmt(1e6/S.period,0) + " \u2113/mm  \u00b7  \u03b3 " + fmtAng(S.gamma) + "\u00b0"
-      + "  \u00b7  \u03b1 " + fmt(S.alpha,1) + "\u00b0"
+      fmt(1e6/S.period,0) + " \u2113/mm  \u00b7  " + symCone() + " " + fmtAng(coneValue()) + "\u00b0"
+      + "  \u00b7  " + symInc() + " " + fmt(S.alpha,1) + "\u00b0"
       // eta earns a permanent slot in both mounts: it is the pitch the stage
       // is set to AND the graze onto the substrate, which is the number that
       // decides whether the grating reflects at all.
@@ -1876,7 +2342,7 @@
       else if(m.m===0) tr.className="z";
       var col = !m.prop ? "#ff5470"
               : S.branch === "T" ? (m.m===0 ? "#7d8aa6" : "#b07cff")
-              : m.blaze ? "#ffc233" : m.m===0 ? "#95a2bb" : "#4dc4ff";
+              : m.blaze ? "#ffc233" : m.m===0 ? "#eef3ff" : "#4dc4ff";
       var rel = (sc.eff && sc.eff.emax>0 && m.eff!=null && showR()) ? m.eff/sc.eff.emax : 0;
       // One sin beta, two branches. "both" prints them together because that
       // is the point: the same order propagates on both sides or on neither.
@@ -1884,7 +2350,7 @@
       var bcell = "evan.";
       if(m.prop){
         var both = S.branch === "both", dp = both ? 1 : 2;
-        var bR = fmt(m.beta*DEG,dp), bT = fmt(betaTdeg(m.beta),dp);
+        var bR = fmt(betaShown(m.beta*DEG),dp), bT = fmt(betaShown(betaTdeg(m.beta)),dp);
         bcell = S.branch === "R" ? bR+"°"
               : S.branch === "T" ? bT+"°"
               : bR+" / "+bT;
@@ -1932,7 +2398,7 @@
     if(geometryOnly()){
       document.getElementById("cap").innerHTML =
         "<b>To scale.</b> The grating equation only: "
-        + "sin \u03b1 + sin \u03b2<sub>m</sub> = m\u03bb/(p sin \u03b3). "
+        + gratingEquation() + ". "
         + "No groove profile is modelled, so every propagating order is "
         + "drawn alike."
         + (showT() ? " Dashed = transmitted." : "");
@@ -1942,7 +2408,8 @@
       "<b>To scale</b>, bar the patch size. "+
       (showT()
         ? "<b>Both branches share sin β</b> — only the sign of cos β differs, so "+
-          "the same orders propagate on each side of n̂. Dashed = transmitted, "+
+          "the same orders propagate on each side of " + axHat(1) + ". "+
+          "Dashed = transmitted, "+
           "direction only. "
         : "") +
       "<b>Scalar theory, "+
@@ -2043,7 +2510,15 @@
     gamma:{el:"k-gamma", out:"v-gamma",
       get:function(v){return geo(v,0.25,90);},
       set:function(x){return geoInv(x,0.25,90);},
-      fmt:function(x){return fmt(x, x<10?2:1)+"°";}},
+      // The knob still moves gamma; the READOUT is whichever angle the cone
+      // convention names. Without this the label said one thing and the number
+      // beside it another, which is the one failure a spelling layer must not
+      // have. Note the number runs backwards against the track under the
+      // elevation convention, and that is correct: it is 90 minus the other.
+      fmt:function(x){
+        var v = S.conv.cone === "phi" ? 90 - x : x;
+        return fmt(v, v<10?2:1)+"°";
+      }},
     alpha:{el:"k-alpha", out:"v-alpha",
       get:function(v){return v/10;}, set:function(x){return x*10;},
       fmt:function(x){return fmt(x,1)+"°";}},
@@ -2095,6 +2570,9 @@
       if(key !== except) document.getElementById(spec.el).value = spec.set(v);
       document.getElementById(spec.out).textContent = spec.fmt(v);
     });
+    // Options shows k-hat_i evaluated at the current alpha and gamma, so it is
+    // stale the moment either moves. This is the one place both do.
+    paintKi();
   }
 
   Object.keys(K).forEach(function(key){
@@ -2226,19 +2704,29 @@
   rimEl.addEventListener("input", function(){ S.rim = parseFloat(rimEl.value)/1000; draw(); });
 
   // ---- preset views (PRESET_VIEWS, as camera angles) -------------------
+  // Two of the four are named after an axis, so they follow the axis names and
+  // are painted rather than fixed at build time.
   var VIEWS = [
-    {name:"Oblique",       yaw:26.6,  pitch:20.4, rim:0},
-    {name:"Down the cone", yaw:0,     pitch:0,    rim:1},
-    {name:"Along d̂", yaw:90,    pitch:0,    rim:0},
-    {name:"Face n̂",  yaw:0,     pitch:88,   rim:0}
+    {name:function(){ return "Oblique"; },       yaw:26.6, pitch:20.4, rim:0},
+    {name:function(){ return "Down the cone"; }, yaw:0,    pitch:0,    rim:1},
+    {name:function(){ return "Along " + axHat(0); }, yaw:90, pitch:0,  rim:0},
+    {name:function(){ return "Face "  + axHat(1); }, yaw:0,  pitch:88, rim:0}
   ];
   var viewsEl = document.getElementById("views"), active = 0;
   VIEWS.forEach(function(v,i){
     var b=document.createElement("button");
-    b.textContent=v.name; b.setAttribute("aria-pressed", i===0?"true":"false");
+    b.setAttribute("aria-pressed", i===0?"true":"false");
     b.addEventListener("click", function(){ goTo(i); });
     viewsEl.appendChild(b);
   });
+  
+  // Set once: nothing varies them any more.
+  function paintViewNames(){
+    Array.prototype.forEach.call(viewsEl.children, function(b,i){
+      b.textContent = VIEWS[i].name();
+    });
+  }
+  paintViewNames();
 
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -2636,6 +3124,339 @@
     if(e.target.closest("#sheet")) return;
     e.preventDefault();
   }, {passive:false});
+
+  // ---- the menu: title, options, credits -------------------------------
+  //
+  // One rule: the application's name is READ from document.title and never
+  // written here. Two names are in play now -- the application is grating lab
+  // and Cone of Diffraction is a section inside it, whose own heading lives in
+  // the stamp -- so each gets exactly one home. If the title ever empties, the
+  // right failure is no menu at all rather than one with a blank where the name
+  // goes, so this removes itself instead of showing an empty frame.
+  (function(){
+    var titleEl = document.getElementById("title");
+    var panels = [document.getElementById("options"), document.getElementById("credits")];
+    var WORDMARK = (document.title || "").trim();
+    if(!titleEl || panels.some(function(p){ return !p; }) || !WORDMARK){
+      [titleEl].concat(panels).forEach(function(el){
+        if(el && el.parentNode) el.parentNode.removeChild(el);
+      });
+      return;
+    }
+    document.getElementById("title-name").textContent = WORDMARK;
+
+    // The ornament. Every fraction here is scripts/make-icon.py's, so the icon
+    // and this screen cannot drift into being two different drawings.
+    var TEETH = 4, TROUGH_Y = 0.780, PEAK_Y = 0.575, BAND_BOTTOM = 1.00;
+    var STRIKE = [0.400, 0.690];
+    var ORDERS = [22.0, 50.0, 77.0, 103.0, 127.0];   // anticlockwise from +x, y up
+    var BLAZE_ORDER = 50.0, INCIDENT = 148.0;
+    var RAY_LEN = 0.78, INCIDENT_LEN = 0.60;
+
+    var art = document.getElementById("title-art");
+    function drawArt(){
+      if(!art || titleEl.hidden) return;
+      var w = art.clientWidth, h = art.clientHeight;
+      if(!w || !h) return;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      art.width = Math.round(w*dpr); art.height = Math.round(h*dpr);
+      var g = art.getContext("2d");
+      g.setTransform(dpr,0,0,dpr,0,0);
+      g.clearRect(0,0,w,h);
+
+      // The icon is square; this is a banner. Keep the square and centre it, so
+      // the proportions are the icon's rather than a stretched version of them.
+      var S = h, x0 = (w - S)/2, y0 = 0;
+      function px(fx, fy){ return [x0 + fx*S, y0 + fy*S]; }
+      var o = px(STRIKE[0], STRIKE[1]);
+
+      // Rays first: the band is drawn last and covers their tails, which is the
+      // order make-icon.py uses and the reason the fan looks like it leaves the
+      // surface rather than passing through it.
+      function ray(deg, len, width, colour, alpha){
+        var r = deg*Math.PI/180;
+        g.save();
+        g.globalAlpha = alpha;
+        g.strokeStyle = colour; g.lineWidth = width; g.lineCap = "round";
+        g.beginPath(); g.moveTo(o[0], o[1]);
+        g.lineTo(o[0] + Math.cos(r)*len*S, o[1] - Math.sin(r)*len*S);
+        g.stroke(); g.restore();
+      }
+      ray(INCIDENT, INCIDENT_LEN, Math.max(1, 0.010*S), "#8fa3c8", 0.55);
+      for(var i=0;i<ORDERS.length;i++){
+        var blaze = ORDERS[i] === BLAZE_ORDER;
+        // ramp() is the dispersion strip's wavelength colour, so the fan is
+        // tinted by the same function that tints a real spectrum in this app.
+        ray(ORDERS[i], RAY_LEN, Math.max(1, (blaze ? 0.017 : 0.011)*S),
+            ramp(i/(ORDERS.length-1)), blaze ? 0.95 : 0.7);
+      }
+
+      // The blazed band, as the real sawtooth it is.
+      var pts = [], k;
+      for(k=0;k<=TEETH;k++){
+        var xA = px(k/TEETH, 0)[0];
+        pts.push([xA, px(0, TROUGH_Y)[1]]);
+        if(k < TEETH) pts.push([px((k+1)/TEETH, 0)[0], px(0, PEAK_Y)[1]]);
+      }
+      g.save();
+      g.beginPath();
+      g.moveTo(pts[0][0], pts[0][1]);
+      for(k=1;k<pts.length;k++) g.lineTo(pts[k][0], pts[k][1]);
+      g.lineTo(x0 + S, y0 + BAND_BOTTOM*S);
+      g.lineTo(x0, y0 + BAND_BOTTOM*S);
+      g.closePath();
+      var grad = g.createLinearGradient(x0, y0 + PEAK_Y*S, x0, y0 + BAND_BOTTOM*S);
+      grad.addColorStop(0, "#ffc233");
+      grad.addColorStop(1, "#8a6410");
+      g.fillStyle = grad; g.fill();
+      g.restore();
+    }
+
+    function show(el){
+      titleEl.hidden = el !== titleEl;
+      panels.forEach(function(p){ p.hidden = p !== el; });
+      if(el === titleEl) drawArt();   // a hidden canvas measures zero
+      if(el){
+        var first = el.querySelector("button");
+        if(first) first.focus();
+      }
+    }
+    function enter(){
+      show(null);
+      // Nothing about the layout changed -- the overlay was fixed, so the stage
+      // has been its real size all along and the opening fit is already right.
+      // Redrawn anyway because the scene behind it has never been looked at.
+      draw();
+    }
+    function open(){ return panels.filter(function(p){ return !p.hidden; })[0]; }
+
+    document.getElementById("title-start").addEventListener("click", enter);
+    document.getElementById("title-options").addEventListener("click", function(){
+      show(document.getElementById("options"));
+    });
+    document.getElementById("title-credits").addEventListener("click", function(){
+      show(document.getElementById("credits"));
+    });
+    ["options-back","credits-back"].forEach(function(id){
+      document.getElementById(id).addEventListener("click", function(){ show(titleEl); });
+    });
+
+    document.addEventListener("keydown", function(e){
+      if(open()){
+        if(e.key === "Escape"){ e.preventDefault(); show(titleEl); }
+        return;
+      }
+      if(titleEl.hidden) return;
+      // Enter and space are what the focused button answers to anyway; this
+      // only adds them when the focus has wandered off it.
+      if(e.key === "Enter" || e.key === " " || e.key === "Escape"){
+        e.preventDefault();
+        enter();
+      }
+    });
+
+    document.getElementById("title-start").focus();
+    drawArt();
+    window.addEventListener("resize", drawArt);
+  })();
+
+  // ---- mathematics, as MathML ------------------------------------------
+  //
+  // Native MathML rather than a typesetting library. KaTeX is about 300 KB
+  // plus its fonts against a 129 KB application, the CI guard forbids an
+  // external script, and ios/package.mjs would have another vendoring job.
+  // MathML is markup: it costs nothing, the self-contained sweep has nothing
+  // to object to, and a screen reader is handed mathematics instead of a line
+  // of Unicode that happens to look like it.
+  //
+  // Support was MEASURED in the engine this ships in before any of this was
+  // written, with an mfrac against a plain mn: a real fraction stacks and is
+  // taller. Single letters do not discriminate, which is how the first check
+  // came back with the wrong answer.
+  var MMLNS = "http://www.w3.org/1998/Math/MathML";
+  function mml(inner, block){
+    return '<math xmlns="' + MMLNS + '"' + (block ? ' display="block"' : '') +
+           '>' + inner + '</math>';
+  }
+  function mi(s){ return "<mi>" + s + "</mi>"; }
+  function mn(s){ return "<mn>" + s + "</mn>"; }
+  function mo(s){ return "<mo>" + s + "</mo>"; }
+  function mrow(s){ return "<mrow>" + s + "</mrow>"; }
+  function msub(a, b){ return "<msub>" + a + b + "</msub>"; }
+  function mfrac(a, b){ return "<mfrac>" + a + b + "</mfrac>"; }
+  // U+2061 is FUNCTION APPLICATION: invisible, and what tells a renderer that
+  // "sin" is an operator taking the next thing rather than three variables
+  // multiplied together. It is the difference between sin and s times i times n.
+  function mfn(name, arg){ return mi(name) + "<mo>&#x2061;</mo>" + arg; }
+  // Juxtaposed <mi> gets NO space from a renderer, so "sin a sin g x" comes out
+  // as sinasingx. Products need it written in: a thin space between factors is
+  // what the typography of a product actually is.
+  function mthin(){ return '<mspace width="0.22em"/>'; }
+  function mprod(){
+    return Array.prototype.slice.call(arguments).join(mthin());
+  }
+  function mhat(s){
+    return '<mover accent="true">' + mi(s) + "<mo>&#x302;</mo></mover>";
+  }
+
+  // The headline equation.
+  //
+  // The SLASH form, not a stacked fraction, and that is measured rather than a
+  // matter of taste: the caption is 10.5px small print, so mfrac puts the
+  // numerator at about five pixels and nobody can read it. A fraction bar needs
+  // a display context; this is running text, and the brackets it costs are the
+  // price of the line being legible. The Options panel is where the stacked
+  // form belongs, and mfrac is there for it.
+  //
+  // What MathML buys even here: italic variables against upright operators,
+  // real spacing around + and =, a properly set subscript, and sin as a
+  // function rather than three letters multiplied together.
+  function gratingEquation(){
+    // The operator between the sines IS the sign convention, and the cone term
+    // is sin gamma or cos phi depending on which angle is being shown.
+    var el = S.conv.cone === "phi";
+    return mml(
+      mfn("sin", mi(symInc())) + mo(betaOp()) +
+      mfn("sin", msub(mi("\u03b2"), mi("m"))) + mo("=") +
+      mprod(mi("m"), mi("\u03bb")) + mo("/") +
+      mo("(") + mprod(mi(symPeriod()),
+                      mfn(el ? "cos" : "sin", mi(symCone()))) + mo(")"));
+  }
+
+  // ---- the conventions panel -------------------------------------------
+  //
+  // One repaint for all of them, because a symbol shows up in the canvas, the
+  // configuration line, the toolbar, the caption, the table and the strip, and
+  // they must never disagree. paintConventions is the single place that says so.
+  function paintConventions(){
+    document.getElementById("lab-gamma").innerHTML = symCone();
+    syncKnobs();                 // the cone knob's readout is convention-dependent
+    document.getElementById("lab-alpha").innerHTML = symInc();
+    document.getElementById("lab-period").innerHTML = symPeriod() + " period";
+    document.getElementById("v-periodsym").textContent = symPeriod();
+    document.getElementById("v-incsym").textContent = symInc();
+    document.getElementById("v-conesym").textContent =
+      S.conv.cone === "phi" ? "elevation" : "polar";
+    document.getElementById("v-signsym").textContent =
+      S.conv.betaSign > 0 ? "\u03b2 as computed" : "\u03b2 negated";
+    document.getElementById("conv-note").textContent =
+      "\u03b3 is the polar angle from the groove axis and \u03b1 is an azimuth, "+
+      "both in the ISO sense with the pole along +" + axName(2) + ". 90\u00b0\u2212\u03b3 "+
+      "is the elevation from the dispersion plane, which is a different thing "+
+      "from an azimuth however it is sometimes named. The sign control moves no "+
+      "ray: it negates the printed \u03b2, which is what turns sin+sin into sin\u2212sin.";
+    paintViewNames();
+    paintKi();
+    invalidate();
+    draw();
+  }
+
+  (function(){
+    // The three axis names, as text. This replaces the d-hat/n-hat/g-hat
+    // toggle that used to be here with something that can spell anything,
+    // including that.
+    [0,1,2].forEach(function(i){
+      var el = document.getElementById("ax-" + i);
+      el.value = S.conv.ax[i];
+      el.addEventListener("input", function(){
+        S.conv.ax[i] = el.value;
+        paintConventions();
+      });
+      // An empty box falls back to x/y/z rather than drawing nothing, and says
+      // so by putting the fallback back in the field when focus leaves.
+      el.addEventListener("blur", function(){
+        if(!el.value.trim()){ S.conv.ax[i] = ""; el.value = axName(i); S.conv.ax[i] = el.value; }
+        paintConventions();
+      });
+    });
+
+    function segment(id, get, set){
+      var seg = document.getElementById(id);
+      function paint(){
+        Array.prototype.forEach.call(seg.children, function(b){
+          b.setAttribute("aria-pressed", b.dataset.v === String(get()) ? "true" : "false");
+        });
+      }
+      Array.prototype.forEach.call(seg.children, function(b){
+        b.addEventListener("click", function(){
+          set(b.dataset.v); paint(); paintConventions();
+        });
+      });
+      paint();
+      return paint;
+    }
+    var repaint = [
+      segment("periodseg", function(){ return S.conv.period; },
+                           function(v){ S.conv.period = v; }),
+      segment("incseg",    function(){ return S.conv.inc; },
+                           function(v){ S.conv.inc = v; }),
+      segment("coneseg",   function(){ return S.conv.cone; },
+                           function(v){ S.conv.cone = v; }),
+      segment("signseg",   function(){ return S.conv.betaSign; },
+                           function(v){ S.conv.betaSign = parseInt(v,10); })
+    ];
+    paintConventions();
+  })();
+
+  // ---- the incident wave vector, written out ---------------------------
+  //
+  // The same k in the two forms its own documents use. Chapter 2 factors the
+  // sign out in front, conventions.md writes it into each component:
+  //
+  //   thesis          k = -k [ sin a sin g x + cos a sin g y - cos g z ]
+  //   conventions.md  k = +k [ -sin a sin g x - cos a sin g y + cos g z ]
+  //
+  // Identical vectors, and the point of showing both is that a reader coming
+  // from either document finds the one they know. Built from the pieces rather
+  // than written out twice so the two cannot drift apart.
+  var MINUS = "\u2212";
+  function paintKi(){
+    var X = mhat(axName(0)), Y = mhat(axName(1)), Z = mhat(axName(2));
+    // In the elevation convention the cone terms are the OTHER function:
+    // sin phi = cos gamma, so sin gamma becomes cos phi and cos gamma sin phi.
+    var A = mi(symInc()), G = mi(symCone());
+    var el = S.conv.cone === "phi";
+    var sinG = mfn(el ? "cos" : "sin", G), cosG = mfn(el ? "sin" : "cos", G);
+    var sasg = mprod(mfn("sin", A), sinG);
+    var casg = mprod(mfn("cos", A), sinG);
+    var cg   = cosG;
+    var lhs  = msub(mhat("k"), mi("i")) + mo("=");
+    var body = S.kform === "factored"
+      ? mo("&#x2212;") + mo("[") + mrow(mprod(sasg, X)) + mo("+") +
+        mrow(mprod(casg, Y)) + mo("&#x2212;") + mrow(mprod(cg, Z)) + mo("]")
+      : mo("&#x2212;") + mrow(mprod(sasg, X)) + mo("&#x2212;") +
+        mrow(mprod(casg, Y)) + mo("+") + mrow(mprod(cg, Z));
+    document.getElementById("kvec-expr").innerHTML = mml(lhs + body, true);
+
+    var sg = Math.sin(S.gamma*RAD);
+    var c = [-Math.sin(S.alpha*RAD)*sg, -Math.cos(S.alpha*RAD)*sg,
+             Math.cos(S.gamma*RAD)];
+    document.getElementById("kvec-num").textContent =
+      "\u03b1 " + fmt(S.alpha,1) + "\u00b0, \u03b3 " + fmtAng(S.gamma) +
+      "\u00b0   \u2192   (" +
+      c.map(function(v){ return (v<0?MINUS:"+") + Math.abs(v).toFixed(5); }).join(", ") + ")";
+
+    document.getElementById("v-kform").textContent =
+      S.kform === "factored" ? "thesis" : "package";
+    document.getElementById("kform-note").textContent = S.kform === "factored"
+      ? "Chapter 2's form, with the sign factored out in front. Multiply it "+
+        "through and you get the other one."
+      : "conventions.md's form, with the sign written into each component. "+
+        "It is what the code does, term for term.";
+  }
+  (function(){
+    var seg = document.getElementById("kformseg");
+    function paint(){
+      Array.prototype.forEach.call(seg.children, function(b){
+        b.setAttribute("aria-pressed", b.dataset.v === S.kform ? "true" : "false");
+      });
+      paintKi();
+    }
+    Array.prototype.forEach.call(seg.children, function(b){
+      b.addEventListener("click", function(){ S.kform = b.dataset.v; paint(); });
+    });
+    paint();
+  })();
 
   showHint();                      // say what has been seen from the start
 
