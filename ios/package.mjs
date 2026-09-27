@@ -46,7 +46,7 @@ if (!SHELL) {
   process.exit(1);
 }
 
-const { createBuild } = await import(
+const { createBuild, transforms } = await import(
   pathToFileURL(join(SHELL, 'pipeline', 'index.mjs')).href
 );
 
@@ -107,9 +107,29 @@ b.edit(state, 'vendor IBM Plex instead of fetching it from Google', (html) =>
   )
 );
 
+// 4. The title screen's publisher mark becomes plain text.
+//
+//    In a WKWebView an <a href="https://..."> with no target navigates the web
+//    view itself, and there is no back: the application would simply become
+//    magmacrunch.com. george-boole unwraps the same mark for the same reason,
+//    and adds a second one worth keeping -- an outbound link on the FIRST
+//    screen sends a tester to Safari before they have seen anything. The
+//    credits carry the links instead, which is the next step.
+b.edit(state, 'unwrap the publisher mark, which is a link only on the web', (html) =>
+  html.replace(
+    /<a class="title-publisher-link" href="[^"]*">([\s\S]*?)<\/a>/,
+    '<span class="title-publisher-link">$1</span>'
+  )
+);
+
+// 5. Every remaining outbound link opens in the system browser rather than in
+//    place. After the step above these are all in credits, where a tester has
+//    chosen to go looking.
+transforms.outboundLinks(b, state);
+
 b.writePage(state);
 
-// 4. Nothing may reach outside the bundle or over the network.
+// 6. Nothing may reach outside the bundle or over the network.
 b.sweepSelfContained();
 
 console.log(`package.mjs: built ${b.OUT}`);

@@ -74,17 +74,39 @@ jobs:
       # The bundle that shipped into the app, not the one package.mjs wrote:
       # cap sync copies www/ into App/App/App/public, and a transform that went
       # wrong between the two would not show up anywhere else.
-      - name: Nothing in the shipped bundle reaches the network
+      - name: Nothing in the shipped bundle fetches over the network
         working-directory: gratinglab/ios/App/App/App/public
         run: |
-          # Only the files that can actually cause a request. The vendored SIL
-          # OFL licence text names http://scripts.sil.org/OFL, which is prose in
-          # a .txt nothing loads -- grepping the whole tree fails on it.
-          if grep -rn --include='*.html' --include='*.css' --include='*.js' 'https\?://' . ; then
-            echo "::error::the shipped bundle contains a network reference"
+          # This tests what it is named: something that FETCHES. It used to
+          # test for any occurrence of a URL, which is a different and larger
+          # thing, and the page has since grown two kinds that never load:
+          #
+          #   * <a href="https://..."> is a user-initiated navigation, not a
+          #     resource. The page carries four, to magmacrunch.com and two
+          #     repositories. package.mjs unwraps the one on the title screen
+          #     and gives the rest to the system browser.
+          #   * "http://www.w3.org/1998/Math/MathML" is the MathML namespace,
+          #     an identifier. Nothing requests it; a <math> element is inert
+          #     without it.
+          #
+          # The file list was already narrowed once for the same class of false
+          # positive: the vendored SIL OFL text names a URL in prose.
+          #
+          # This mirrors outsideRefs() in hypnopompia's pipeline, which
+          # b.sweepSelfContained() already applies inside package.mjs. Both are
+          # kept on purpose -- this one does not depend on the pipeline being
+          # right, which is the only reason a second guard is worth having.
+          if grep -rnE '<(script|link|img|source|video|audio)[^>]*(src|href)[[:space:]]*=[[:space:]]*"https?:' \
+               --include='*.html' . ; then
+            echo "::error::the shipped bundle loads a resource over the network"
             exit 1
           fi
-          echo "no network references in the shipped bundle"
+          if grep -rnE '(url\([[:space:]]*.?|@import[[:space:]]+.?)https?:' \
+               --include='*.html' --include='*.css' . ; then
+            echo "::error::the shipped bundle pulls a stylesheet or asset over the network"
+            exit 1
+          fi
+          echo "nothing in the shipped bundle fetches over the network"
 
       # THE ZIP A TESTER INSTALLS, and the manifest describing it. Packaged by
       # the shell rather than here: hypnopompia is already checked out beside
