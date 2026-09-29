@@ -116,9 +116,25 @@ the port moved, and `check` green with `fixture` red means the package did and
 
 ```
 app/index.html   the whole application, one file
+app/manifest.json   PWA manifest
+app/sw.js   service worker (cache-first strategy)
+app/icons/   PWA icons (192×192, 512×512)
 tools/check.mjs  conformance check, node only
 tools/ref.py     regenerates tools/fixture.json from gratinglab
 tools/embed_materials.py   re-embeds the Au table at full precision
+```
+
+## PWA
+
+The app is a Progressive Web App. When served over HTTPS, browsers offer
+"Add to Home Screen" / "Install" which creates a standalone launcher without
+the browser chrome. The service worker caches the app shell (HTML, CSS, JS,
+fonts, icons) so it loads offline after the first visit.
+
+Generate the PWA icons from the app icon script:
+
+```bash
+python3 scripts/make-icon.py --pwa app/icons
 ```
 
 ## Licence

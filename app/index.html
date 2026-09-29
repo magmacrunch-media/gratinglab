@@ -4,6 +4,8 @@
      stage, scaled down to illegibility. viewport-fit=cover is what lets
      env(safe-area-inset-*) report real numbers. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b1018">
+<link rel="manifest" href="manifest.json">
 <!-- The APPLICATION's name. Cone of Diffraction is a section inside it, not
      the whole of it, and its own heading is down in the stamp. The title
      screen reads this rather than carrying a second copy. -->
@@ -3463,5 +3465,9 @@
   window.addEventListener("resize", resize);
   window.addEventListener("orientationchange", resize);
   resize();
+
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js");
+  }
 })();
 </script>

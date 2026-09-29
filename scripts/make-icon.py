@@ -198,13 +198,30 @@ def sheet(path):
     return path
 
 
+PWA_SIZES = (192, 512)
+
+
+def pwa(out_dir):
+    """Write the PWA icon set: 192 and 512 px, maskable not required."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for size in PWA_SIZES:
+        out = out_dir / f"icon-{size}.png"
+        render(LIGHT, size).save(out)
+        print("wrote", out)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--sheet", metavar="PNG", help="write a small-size proof sheet instead")
+    ap.add_argument("--pwa", metavar="DIR", help="write PWA icons to DIR (e.g. app/icons)")
     args = ap.parse_args()
 
     if args.sheet:
         print("wrote", sheet(args.sheet))
+        return
+
+    if args.pwa:
+        pwa(Path(args.pwa))
         return
 
     ICONSET.mkdir(parents=True, exist_ok=True)
