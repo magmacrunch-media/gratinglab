@@ -70,9 +70,53 @@ const FACES = [
   { pkg: '@fontsource/ibm-plex-mono', file: 'ibm-plex-mono-latin-500-normal.woff2', family: 'IBM Plex Mono', weight: 500 },
 ];
 
+/**
+ * Everything in `app/` that goes into the bundle. There is nothing to exclude
+ * today, which is why EXCLUDE is empty rather than absent: the two lists
+ * together are the complete inventory of that folder's top level, and
+ * `checkWebInventory` stops the build on anything in neither, or on anything
+ * either list names that has since been deleted.
+ *
+ * The copying is not the point; copyWeb would carry these without being told.
+ * The point is that a file arriving in `app/` is read by somebody before it can
+ * reach the App Store. The three sibling apps all shipped a PWA service worker
+ * that way: it arrived with a commit that was right about the website, their
+ * pipelines had no opinion, and it went into their bundles unread. This app has
+ * none today and this is how it stays that way on purpose rather than by luck.
+ */
+const CARRY = ['index.html', 'img'];
+
+/**
+ * The PWA half, which must not be in an iOS bundle. It stays in `app/` on
+ * purpose: it is wanted for a Microsoft Store packaging later.
+ *
+ * The icons go with the manifest, because that is the only thing that names
+ * them: index.html links the manifest and nothing else points at app/icons/.
+ *
+ * The manifest is merely pointless in a Capacitor app. The service worker is
+ * worse than pointless there: cache-first under a name that never changes,
+ * over assets an app update cannot invalidate.
+ */
+const EXCLUDE = new Set(['sw.js', 'manifest.json', 'icons']);
+
 // 1. The page and its own files.
-b.copyWeb();
+// Checked before anything is copied, so an unread file stops the build rather
+// than being discovered in the bundle afterwards.
+b.checkWebInventory(CARRY, EXCLUDE);
+b.copyWeb({ exclude: EXCLUDE });
 const state = b.openPage();
+
+// Two lines, two transforms, so that if either moves the build says which.
+// Folding them together would let a changed registration line hide behind a
+// manifest link that still matched, which is the no-op edit() makes fatal.
+// The registration here spans lines, so the pattern is not anchored to one.
+b.edit(state, 'drop the service worker registration', (html) =>
+  html.replace(/[ \t]*if\s*\(\s*"serviceWorker"[^]*?\}\r?\n/, '')
+);
+
+b.edit(state, 'drop the web app manifest link', (html) =>
+  html.replace(/[ \t]*<link rel="manifest"[^>]*>\r?\n/, '')
+);
 
 // 2. The faces, from node_modules into the bundle.
 mkdirSync(join(b.OUT, 'fonts'), { recursive: true });

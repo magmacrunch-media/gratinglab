@@ -75,6 +75,14 @@ jobs:
       - name: Conformance
         run: node tools/check.mjs
 
+      # The service worker, which cannot be exercised in a browser and whose
+      # last version never ran at all: it precached two files that do not
+      # exist, cache.addAll is atomic, so install rejected every time and the
+      # worker never activated. A site with a dead service worker behaves
+      # exactly like a site with none, which is why nothing said so.
+      - name: Service worker routing
+        run: node tools/check-sw.mjs
+
   fixture:
     name: port vs the package
     runs-on: ubuntu-latest
