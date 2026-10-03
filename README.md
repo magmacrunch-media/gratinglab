@@ -71,6 +71,34 @@ implementation and stays the source of truth.
   The dispersion strip shows that overlap, and its `arc` lane is what a detector
   sweeping the arc actually sees.
 
+## Using it as a calculator
+
+Every readout with a knob behind it is also an input. Tap the number, type,
+press Enter. A specific grating then goes in as the numbers you actually have
+rather than as a slider you nudge towards them:
+
+- **λ** in nm, **p** in nm **or grooves per mm**: both are shown on the period
+  row and either can be typed. The density is `1e6/p`, not a second setting.
+- **γ and α**, or **η and φ** if the mount is what you have. Typed values go
+  through the same clamping a drag does, so η and φ cannot walk under each
+  other's knobs.
+- **δ**, the band width, and the roll.
+
+Out-of-range input is clamped to the knob's own range; input that is not a
+number is refused and the field stays open, so nothing is thrown away silently.
+
+The propagating set is then readable two ways. In the scene, each order is
+labelled with its index and, where there is room for it, its β, placed in
+screen space, so zooming in reveals more rather than reaching a fixed budget,
+and a cone with hundreds of orders labels as many as stay legible. In the
+**Orders** tab, the whole table, with evanescent orders shown passing off rather
+than dropped. **copy** puts the geometry and the table on the clipboard as plain
+text.
+
+The setup is remembered between launches. The camera is not: Recentre is the
+only way back from an orbit, so coming back to someone else's is worse than
+coming back to the default.
+
 ## What it does not
 
 **No transmitted efficiency.** The ported solver is a reflection-grating model,
@@ -117,7 +145,7 @@ the port moved, and `check` green with `fixture` red means the package did and
 ```
 app/index.html   the whole application, one file
 app/manifest.json   PWA manifest
-app/sw.js   service worker (cache-first strategy)
+app/sw.js   service worker (network-first page, cache-first stamped assets)
 app/icons/   PWA icons (192×192, 512×512)
 tools/check.mjs  conformance check, node only
 tools/ref.py     regenerates tools/fixture.json from gratinglab
@@ -128,8 +156,10 @@ tools/embed_materials.py   re-embeds the Au table at full precision
 
 The app is a Progressive Web App. When served over HTTPS, browsers offer
 "Add to Home Screen" / "Install" which creates a standalone launcher without
-the browser chrome. The service worker caches the app shell (HTML, CSS, JS,
-fonts, icons) so it loads offline after the first visit.
+the browser chrome. The service worker caches what the page
+actually requests, so it loads offline after the first visit. `index.html`
+itself is network-first, so an update reaches you without a stale shell pinning
+you to the old version.
 
 Generate the PWA icons from the app icon script:
 

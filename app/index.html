@@ -42,6 +42,19 @@
     --sab: env(safe-area-inset-bottom, 0px);
     --sal: env(safe-area-inset-left, 0px);
     --sar: env(safe-area-inset-right, 0px);
+    /* How much of the bottom of the screen the chrome is using. MEASURED, in
+       measureChrome(), never assumed: the toolbar wraps to two rows on a phone
+       and to one on a desktop, and it gains and loses a row again when the
+       mount changes or Recentre appears. Three rules used to hardcode a
+       one-row toolbar -- 54px under the strip, 58px under the caption, 216px
+       under the caption with the strip open -- so all three under-reserved by
+       a whole row the moment it wrapped, and the caption was drawn over the
+       sliders on every portrait phone. These two are the only numbers now, and
+       nothing has to be revisited when a control is added.
+         --toolbar-h  the toolbar alone, safe-area included
+         --foot-h     the toolbar plus the strip when the strip is open */
+    --toolbar-h: 56px;
+    --foot-h: 56px;
   }
   html,body{height:100%;}
   body{
@@ -59,7 +72,7 @@
      one; the 100% above stays as the fallback. */
   @supports (height: 100dvh){ #app{height:100dvh;} }
   #striphost{
-    position:absolute; left:0; right:0; bottom:calc(54px + var(--sab)); z-index:2;
+    position:absolute; left:0; right:0; bottom:var(--toolbar-h); z-index:2;
     background:#070c14f2; border-top:1px solid var(--rule);
   }
   #strip{display:block; width:100%; height:150px;}
@@ -75,10 +88,19 @@
   /* touch-action is not inherited: the touch lands on this canvas, not on
      #stage, so the canvas has to refuse the default behaviours itself. */
   #sky{display:block; width:100%; height:100%; touch-action:none;}
-  .stamp{
-    position:absolute; left:calc(16px + var(--sal)); top:calc(14px + var(--sat));
-    pointer-events:none; display:flex; flex-direction:column; gap:2px;
+  /* The header box. Only this is positioned against the stage; everything
+     inside it is laid out relative to its siblings. See the markup. */
+  /* A grid, because grid cells cannot overlap and that is the entire property
+     wanted here. Wide: the title and the config line share the left column,
+     the stats take the right -- the same picture absolute positioning drew,
+     with the collisions made unrepresentable rather than avoided by
+     arithmetic. Phone: one column, three rows. */
+  .head{
+    position:absolute; left:calc(16px + var(--sal)); right:calc(16px + var(--sar));
+    top:calc(14px + var(--sat)); pointer-events:none;
+    display:grid; grid-template-columns:1fr auto; column-gap:24px;
   }
+  .stamp{grid-column:1; grid-row:1; display:flex; flex-direction:column; gap:2px;}
   .stamp h1{
     margin:0; font-size:13px; font-weight:600; letter-spacing:.14em;
     text-transform:uppercase; color:var(--ink);
@@ -89,9 +111,10 @@
     font-size:11px; color:var(--ink-faint); letter-spacing:.02em;
     text-shadow:0 0 10px var(--ground), 0 0 4px var(--ground);
   }
+  /* The right-hand cell, top-aligned -- the same place on the screen it used
+     to claim against the stage directly, now without a position of its own. */
   .thesis{
-    position:absolute; right:calc(16px + var(--sar)); top:calc(14px + var(--sat));
-    pointer-events:none;
+    grid-column:2; grid-row:1 / span 2; align-self:start;
     display:flex; gap:22px; font-family:"IBM Plex Mono",ui-monospace,monospace;
     font-variant-numeric:tabular-nums; text-align:right;
   }
@@ -102,10 +125,17 @@
   .thesis .v.over{color:var(--blaze);}
   /* The configuration, live. With the sheet closed none of it is visible
      anywhere else, and it is what you would write under a plot. */
-  #config{color:var(--ink-dim); font-size:11.5px; letter-spacing:.01em;}
+  /* Carries its own typography now rather than inheriting `.stamp p`: it is a
+     sibling of the title block, not a line inside it. */
+  #config{
+    grid-column:1; grid-row:2;
+    margin:2px 0 0; font-family:"IBM Plex Mono",ui-monospace,monospace;
+    color:var(--ink-dim); font-size:11.5px; letter-spacing:.01em;
+    text-shadow:0 0 10px var(--ground), 0 0 4px var(--ground);
+  }
   .caption{
     position:absolute; left:calc(16px + var(--sal)); right:calc(16px + var(--sar));
-    bottom:calc(58px + var(--sab)); pointer-events:none;
+    bottom:calc(var(--foot-h) + 6px); pointer-events:none;
     font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:10.5px;
     color:var(--ink-faint); line-height:1.55;
   }
@@ -121,8 +151,8 @@
     letter-spacing:.06em; color:var(--ink-faint);
   }
   #gesture-hint.idle{opacity:.45;}
-  /* the dispersion strip takes the bottom of the stage when a band is open */
-  #stage.hasstrip .caption{bottom:calc(216px + var(--sab));}
+  /* The strip taking the bottom of the stage is already in --foot-h, so the
+     caption needs no separate rule for it. */
 
   /* -- rim reveal ------------------------------------------------------ */
   /* The bar spans the full width, but only its controls should take input:
@@ -145,7 +175,7 @@
     color:var(--ink); background:#16203399; border:1px solid var(--rule);
     border-radius:999px; padding:7px 14px; backdrop-filter:blur(8px);
   }
-  #sheetbtn, #recentre, #reveal, .phys{pointer-events:auto;}
+  #sheetbtn, #recentre, #reveal, #immerse, .phys{pointer-events:auto;}
   /* The two angles the cone is made of. Always present, never behind a tap. */
   .phys{
     display:flex; align-items:center; gap:9px;
@@ -167,6 +197,21 @@
     width:54px; text-align:right;
   }
   #sheetbtn:hover{border-color:#3a4864;}
+  /* Square, quiet, and the same height as the pill beside it. */
+  #immerse{
+    flex:0 0 auto; appearance:none; cursor:pointer; font:inherit; font-size:13px;
+    line-height:1; color:var(--ink-dim); background:#16203399;
+    border:1px solid var(--rule); border-radius:8px; padding:6px 8px;
+    backdrop-filter:blur(8px);
+  }
+  #immerse:hover{color:var(--ink); border-color:#3a4864;}
+  #immerse[aria-pressed="true"]{color:#fff; background:var(--surface); border-color:var(--facet);}
+  /* The scene is fitted by viewRect(), which measures .head and #cap rather
+     than assuming them -- so hiding these is all that is needed and the
+     camera follows into the room they gave up. */
+  #app.immersive #config,
+  #app.immersive .thesis,
+  #app.immersive .caption{display:none;}
   /* Only offered once there is something to undo: free pan and zoom can lose
      the scene, and nothing else in the toolbar puts it back. */
   #recentre{
@@ -261,6 +306,42 @@
     color:var(--ink); font-variant-numeric:tabular-nums; width:82px; text-align:right;
   }
   .knob .val.over{color:var(--blaze);}
+
+  /* -- typed entry ----------------------------------------------------- */
+  /* A slider cannot be asked for lambda = 2.40 nm or p = 160.0 nm exactly,
+     and those are the numbers somebody designing a grating actually has. So
+     every readout with a knob behind it is also an input. The dotted rule is
+     the whole affordance: it has to read as editable at a glance without
+     turning a quiet column of numbers into a column of form fields. */
+  .valcell{position:relative; display:flex; justify-content:flex-end;}
+  .valstack{display:flex; flex-direction:column; align-items:flex-end; gap:3px;}
+  .val.editable{
+    cursor:text; border-bottom:1px dotted #3a4761;
+    transition:color .12s ease, border-color .12s ease;
+  }
+  .val.editable:hover{color:#fff; border-bottom-color:var(--order);}
+  .val.editable:focus-visible{
+    outline:2px solid var(--order); outline-offset:2px; border-radius:2px;
+  }
+  /* Smaller and dimmer: the same grating said a second way, not a second
+     parameter to set. */
+  .val.sub{
+    font-size:10.5px; color:var(--ink-faint); width:auto;
+    border-bottom-color:#2b3752;
+  }
+  .valedit{
+    position:absolute; top:-4px; bottom:-4px; right:-5px; left:-5px;
+    font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px;
+    color:var(--ink); background:#0d1420; border:1px solid var(--order);
+    border-radius:4px; text-align:right; padding:0 5px; appearance:none;
+    font-variant-numeric:tabular-nums; min-width:0;
+  }
+  .valedit:focus{outline:none; box-shadow:0 0 0 2px #4dc4ff33;}
+  /* Refused rather than silently clamped-from-nonsense: "abc" keeps the field
+     open so the typing is not thrown away without a word. */
+  .valedit.bad{border-color:var(--evanescent); box-shadow:0 0 0 2px #ff547033;}
+  .sub + .valedit{font-size:10.5px;}
+  .phys .valedit{font-size:11.5px;}
   .seg{display:flex; gap:0; border:1px solid var(--rule); border-radius:6px; overflow:hidden;}
   .seg button{
     flex:1 1 0; appearance:none; border:none; background:var(--panel-2);
@@ -313,18 +394,36 @@
      .thesis to outrank the flex rule rather than reaching for !important. */
   @media (max-width:559px){
     #stamp-sub{display:none;}
-    /* Two absolutely-positioned corners cannot share 400pt. Drop the thesis to
-       its own full-width row under the title instead of overlapping it. */
+    /* Two absolutely-positioned corners cannot share 400pt, so the stats drop
+       to their own full-width row. `position:static` is the whole fix: the
+       previous rule moved them to a FIXED top of 34px, which cleared the title
+       and landed squarely on the configuration line underneath it. In flow the
+       three stack in markup order and the arithmetic is the browser's. */
+    .head{grid-template-columns:1fr;}
     .thesis{
-      top:calc(34px + var(--sat)); left:calc(16px + var(--sal));
-      right:calc(16px + var(--sar)); gap:12px;
+      grid-column:1; grid-row:2; margin:7px 0 0; gap:12px;
       justify-content:space-between; text-align:left;
     }
+    #config{grid-row:3;}
     .thesis .v{font-size:15px;}
     /* Sticky inside the rail is a desktop affordance; on a phone the rail is a
        short scroller and the pinned row clipped its own buttons. */
     .views{position:static;}
   }
+  /* The answer has to be able to leave the app. */
+  .orderhead{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; margin:0 0 9px;
+  }
+  .orderhead h2{margin:0;}
+  .minibtn{
+    appearance:none; cursor:pointer; font:inherit; font-size:11px;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    color:var(--ink-dim); background:var(--panel-2); border:1px solid var(--rule);
+    border-radius:999px; padding:4px 11px; white-space:nowrap;
+  }
+  .minibtn:hover{color:var(--ink); border-color:#3a4864;}
+  .minibtn:active{background:var(--surface);}
   .more{margin:8px 0 0; font-size:10.5px; color:var(--ink-faint); font-family:"IBM Plex Mono",ui-monospace,monospace;}
 
   /* -- provenance: a validity limit and an expected deviation must not
@@ -708,14 +807,24 @@
 <div id="app">
   <div id="stage">
     <canvas id="sky"></canvas>
-    <div class="stamp">
-      <h1>Cone of Diffraction</h1>
-      <p id="stamp-sub">extreme off-plane mount</p>
+    <!-- One box for the whole header. The title block, the two headline stats
+         and the configuration line are three things competing for the top of
+         the screen, and until they shared a parent each was positioned against
+         the stage on its own -- which is how #config came to be drawn
+         underneath .thesis on EVERY portrait phone once it was added. Siblings
+         in normal flow cannot overlap whatever their heights turn out to be,
+         so the phone rule below only has to choose an order, and a longer
+         config line or a third stat can never reintroduce the collision. -->
+    <div class="head">
+      <div class="stamp">
+        <h1>Cone of Diffraction</h1>
+        <p id="stamp-sub">extreme off-plane mount</p>
+      </div>
+      <div class="thesis">
+        <div><span class="k">&lambda; / p sin &gamma;</span><span class="v" id="t-ratio">&mdash;</span></div>
+        <div><span class="k" id="sumlabel">&Sigma; E</span><span class="v"><span id="t-sum">&mdash;</span><span class="vflag" id="t-flag"></span></span></div>
+      </div>
       <p id="config">&mdash;</p>
-    </div>
-    <div class="thesis">
-      <div><span class="k">&lambda; / p sin &gamma;</span><span class="v" id="t-ratio">&mdash;</span></div>
-      <div><span class="k" id="sumlabel">&Sigma; E</span><span class="v"><span id="t-sum">&mdash;</span><span class="vflag" id="t-flag"></span></span></div>
     </div>
     <p class="caption" id="cap"></p>
     <div id="striphost" hidden>
@@ -744,6 +853,13 @@
       </div>
       <button type="button" id="sheetbtn" aria-expanded="false"
               aria-controls="sheet">Controls</button>
+      <!-- Give the scene the screen. On a portrait phone the header, the
+           caption and the stats are about a fifth of the height between them,
+           and when the picture is the thing being read that is a fifth in the
+           wrong place. A toggle rather than a breakpoint, because which one
+           somebody wants is not a fact about the device. -->
+      <button type="button" id="immerse" aria-pressed="false"
+              title="Give the scene the whole screen">&#x2922;</button>
       <div id="reveal">
         <label for="rim">Zoom</label>
         <input type="range" id="rim" min="0" max="1000" value="0">
@@ -833,10 +949,17 @@
         <input type="range" id="k-band" min="0" max="1000" value="0">
         <span class="val" id="v-band"></span>
       </div>
+      <!-- Both ways of naming one grating, and both typeable. A period in nm
+           is what the equation takes; grooves per mm is what the grating was
+           ordered by and what is written on the box. Neither is a second piece
+           of state -- the density is 1e6/p, painted from the same S.period. -->
       <div class="knob">
         <span class="name" id="lab-period">p period</span>
         <input type="range" id="k-period" min="1000" max="12000" value="3152">
-        <span class="val" id="v-period"></span>
+        <span class="valstack">
+          <span class="val" id="v-period"></span>
+          <span class="val sub" id="v-density"></span>
+        </span>
       </div>
       <div class="knob eff-only">
         <span class="name">&delta; blaze</span>
@@ -849,7 +972,10 @@
 
     <section data-p="orders" hidden>
     <div class="orders">
-      <h2>Orders &middot; scalar efficiency</h2>
+      <div class="orderhead">
+        <h2>Orders &middot; scalar efficiency</h2>
+        <button type="button" id="copyorders" class="minibtn">copy</button>
+      </div>
       <table>
         <thead><tr><th>m</th><th id="bhead">&beta;</th><th id="ehead">E</th><th class="barh"></th></tr></thead>
         <tbody id="obody"></tbody>
@@ -882,12 +1008,14 @@
 
   var RAD = Math.PI/180, DEG = 180/Math.PI;
   var PATCH_SPAN = 0.34, MIN_RIM_MAG = 1.5;
-  var MAX_DRAWN = 81, MAX_LABELS = 7;
+  var MAX_DRAWN = 81;
 
   var S = {
     period:315.15, alpha:25, gamma:1.5, lambda:3, blaze:29.5, band:0, coating:true,
     branch:"R", reflModel:"local", mode:"geometry", mount:"cone",
     kform:"expanded",
+    // Panels off, scene on. A view preference, so it is remembered.
+    immersive:false,
     // How the same numbers are SPELLED. Nothing in here may reach the physics
     // -- see the conventions block for why that is a hard rule and not a
     // preference.
@@ -919,7 +1047,28 @@
     cv.style.width = W+"px"; cv.style.height = H+"px";
     ctx.setTransform(DPR,0,0,DPR,0,0);
   }
-  function resize(){ measure(); draw(); }
+  // The bottom chrome, measured rather than assumed. See --toolbar-h.
+  // offsetHeight on the toolbar already carries its safe-area padding, so
+  // nothing here adds --sab a second time.
+  var toolbarEl = document.getElementById("toolbar");
+  var stripHostEl = document.getElementById("striphost");
+  var rootEl = document.documentElement;
+  var lastFoot = -1;
+  function measureChrome(){
+    var tb = toolbarEl.offsetHeight;
+    rootEl.style.setProperty("--toolbar-h", tb + "px");
+    var foot = tb;
+    if(!stripHostEl.hidden){
+      var r = stripHostEl.getBoundingClientRect();
+      foot = Math.max(foot, (window.innerHeight || H) - r.top);
+    }
+    rootEl.style.setProperty("--foot-h", foot + "px");
+    var changed = foot !== lastFoot;
+    lastFoot = foot;
+    return changed;
+  }
+
+  function resize(){ measure(); measureChrome(); draw(); }
 
   // ---- physics -------------------------------------------------------
   function sinBeta(m, lam){
@@ -1696,10 +1845,11 @@
       return (r.width > 0 && r.height > 0) ? r : null;
     }
 
-    var head = [box(".stamp"), box(".thesis")].filter(Boolean);
-    for(var h=0; h<head.length; h++){
-      y0 = Math.max(y0, head[h].bottom - st.top + 10);
-    }
+    // One box now, and it contains the title, the stats and the config line
+    // whichever way they are arranged -- so this follows a header that grows
+    // instead of needing to know which of its parts is currently the lowest.
+    var head = box(".head");
+    if(head) y0 = Math.max(y0, head.bottom - st.top + 10);
     // The caption when it is shown, the toolbar always: both are chrome drawn
     // over the canvas, and on a short screen only the toolbar remains.
     var foot = [box("#cap"), box("#toolbar")].filter(Boolean);
@@ -1861,13 +2011,24 @@
     ctx.strokeStyle=color; ctx.lineWidth=w||1;
     ctx.beginPath(); ctx.arc(p[0],p[1],r,0,Math.PI*2); ctx.stroke(); ctx.restore();
   }
+  // Every label records the box it covered. The order labels are placed last
+  // in the frame and read this, so they avoid the annotations -- gamma, alpha,
+  // the axis names, ki -- instead of only avoiding each other. Those are drawn
+  // by the same helper, so nothing has to restate where they are.
+  var labelBoxes = [];
+  function labelRect(p, text, dx, dy, size){
+    var w = ctx.measureText(text).width, hh = (size||11)/2;
+    return {x0: p[0]+dx-LABEL_PAD_X,   y0: p[1]+dy-hh-LABEL_PAD_Y,
+            x1: p[0]+dx+w+LABEL_PAD_X, y1: p[1]+dy+hh+LABEL_PAD_Y};
+  }
   function label(pt,text,color,dx,dy,size){
-    var p=proj(pt);
+    var p=proj(pt), ddx=(dx||6), ddy=(dy||0);
     ctx.save();
     ctx.font=(size||11)+'px "IBM Plex Mono", ui-monospace, monospace';
     ctx.fillStyle=color; ctx.textAlign="left"; ctx.textBaseline="middle";
     ctx.shadowColor="#070b12"; ctx.shadowBlur=5;
-    ctx.fillText(text, p[0]+(dx||6), p[1]+(dy||0));
+    ctx.fillText(text, p[0]+ddx, p[1]+ddy);
+    labelBoxes.push(labelRect(p, text, ddx, ddy, size));
     ctx.restore();
   }
 
@@ -1926,6 +2087,91 @@
   }
 
   // ---- scene ---------------------------------------------------------
+  // ---- which orders get a label, and in which form --------------------
+  //
+  // There can be hundreds or thousands of propagating orders -- 8000 at
+  // p = 1200 nm, lambda = 0.30 nm, gamma = 90 -- so "label them all" is never
+  // the answer, and the fixed budget of seven that used to be here is only
+  // right at one zoom. It was also gated on the RIM slider alone, so pinching
+  // in bought no labels at all: the orders separated on screen and the budget
+  // stayed where it was.
+  //
+  // Place them in screen space instead. Walk outward from m = 0, try the long
+  // form (index and angle), fall back to the index alone, and skip the order
+  // when even that would land on a label already placed. The budget is then
+  // whatever the picture can actually hold -- zooming in reveals more with no
+  // threshold chosen anywhere, a crowded cone quietly labels fewer, and two
+  // labels can no longer be drawn on top of each other at any zoom.
+  //
+  // Reflected and transmitted are planned together against one list, because
+  // they are drawn into the same pixels and collide with each other too.
+  var LABEL_PX = 11.5, LABEL_PAD_X = 5, LABEL_PAD_Y = 3, LABEL_DX = 8, LABEL_DY = -1;
+
+  function boxFree(b, placed){
+    if(b.x1 < 0 || b.x0 > W || b.y1 < 0 || b.y0 > H) return false;   // off screen
+    for(var i=0;i<placed.length;i++){
+      var q = placed[i];
+      if(b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0) return false;
+    }
+    return true;
+  }
+
+  // Called at the END of the frame, once every annotation has recorded its
+  // box, so an order label can lose to "gamma 15.39" rather than being drawn
+  // through it.
+  function drawOrderLabels(cand){
+    if(!cand.length) return;
+    var placed = labelBoxes.slice(), i;
+
+    // Leads first, then outward from the centre of the fan.
+    cand.sort(function(a,b){
+      return (b.lead?1:0) - (a.lead?1:0)
+          || Math.abs(a.mk.m) - Math.abs(b.mk.m)
+          || (a.t?1:0) - (b.t?1:0);
+    });
+
+    ctx.save();
+    ctx.font = LABEL_PX + 'px "IBM Plex Mono", ui-monospace, monospace';
+
+    // Two passes, because how many orders are named matters more than how
+    // much is said about each. Taking the long form greedily lets m = 0 spend
+    // the room its neighbour needed and leaves +1 anonymous, which is the
+    // wrong trade for a picture whose job is "which orders are there".
+    //
+    // Pass one: the index alone, for as many as will fit.
+    for(i=0;i<cand.length;i++){
+      var c = cand[i];
+      c.tag = (c.mk.m>0?"+":"") + c.mk.m;
+      var box = labelRect(c.pt, c.tag, LABEL_DX, LABEL_DY, LABEL_PX);
+      if(boxFree(box, placed)){ placed.push(box); c.box = box; c.text = c.tag; }
+    }
+
+    // Pass two: grow to "index  angle" wherever the wider box is still clear.
+    // Transmitted orders are never grown: beta_T is the same cone mirrored,
+    // and a second angle printed beside it reads as a second grating
+    // equation, which is the misreading the dashed rays exist to prevent.
+    for(i=0;i<cand.length;i++){
+      var c2 = cand[i];
+      if(!c2.box || c2.t) continue;
+      var wide = c2.tag + "  " + fmt(betaShown(c2.mk.beta*DEG),1) + "°";
+      var wbox = labelRect(c2.pt, wide, LABEL_DX, LABEL_DY, LABEL_PX);
+      var others = placed.filter(function(q){ return q !== c2.box; });
+      if(boxFree(wbox, others)){
+        placed[placed.indexOf(c2.box)] = wbox;
+        c2.box = wbox; c2.text = wide;
+      }
+    }
+    ctx.restore();
+
+    for(i=0;i<cand.length;i++){
+      var c3 = cand[i];
+      if(!c3.text) continue;
+      ctx.save(); ctx.globalAlpha = c3.alpha;
+      label(c3.world, c3.text, c3.col, LABEL_DX, LABEL_DY, LABEL_PX);
+      ctx.restore();
+    }
+  }
+
   function draw(){
     var sc = physics();
     // The strip taking or giving back its band changes the stage's height, so
@@ -1938,6 +2184,7 @@
     if(!W||!H) return;
     updateCamera();
     ctx.clearRect(0,0,W,H);
+    labelBoxes = [];
 
     var sg = Math.sin(S.gamma*RAD), cg = Math.cos(S.gamma*RAD);
     var O=[0,0,0], L=1;
@@ -2014,9 +2261,10 @@
     label(start, "ki", "#a9bade", 8, -2, 11);
 
     // --- orders
-    var labelled = 0, live = sc.marks.filter(function(m){return m.prop;});
-    var labelStep = Math.max(1, Math.ceil(live.length/MAX_LABELS));
-    var liveIdx = 0;
+    // The rays and dots are drawn here; their LABELS are collected and drawn
+    // at the end of the frame, once gamma, alpha and the axis names have
+    // recorded the room they take. See drawOrderLabels().
+    var cand = [];
     for(i=0;i<sc.marks.length;i++){
       var mk = sc.marks[i];
       if(!mk.prop){
@@ -2026,15 +2274,14 @@
         dotAt([sgn*sg*1.16, 0.0, cg], "#ff5470", 2.2);
         continue;
       }
-      // m = 0 and the blaze order are the two the eye navigates by, so both
-      // are labelled whatever the label budget and whatever the zoom. The
-      // blaze one only exists in the efficiency view, because the geometry
-      // caption promises every propagating order is drawn alike and a groove
-      // profile is not modelled there.
+      // m = 0 and the blaze order are the two the eye navigates by, so they
+      // are offered to the placer first and stay at full strength. The rest
+      // still come up with the rim, so a label announces itself rather than
+      // appearing fully formed. The blaze one exists only in the efficiency
+      // view: the geometry caption promises every propagating order is drawn
+      // alike, and no groove profile is modelled there.
       var leads = mk.m === 0 || (mk.blaze && !geometryOnly());
-      var wantLabel = (liveIdx % labelStep === 0 && S.rim > 0.12) || leads;
-      var labelAlpha = leads ? 1 : Math.min(1,(S.rim-0.12)/0.22);
-      var tag = (mk.m>0?"+":"")+mk.m;
+      var labelAlpha = leads ? 1 : Math.min(1, 0.45 + (S.rim-0.12)/0.22);
 
       if(showR()){
         var k = kvec(mk.beta);
@@ -2058,15 +2305,8 @@
         // A halo rather than a bigger dot, so zero stands out without claiming
         // an efficiency it does not have.
         if(mk.m === 0) ringAt(k, col, 4.6 + 3.2*rel, 1.1, 0.85);
-        if(wantLabel){
-          ctx.save(); ctx.globalAlpha = labelAlpha;
-          // With the rim in focus there is room for the angle itself, which
-          // is the number being looked for.
-          label(k, S.rim > 0.5 ? tag + "  " + fmt(betaShown(mk.beta*DEG),1) + "\u00b0" : tag,
-                col, 8, -1, 11.5);
-          ctx.restore();
-          labelled++;
-        }
+        cand.push({mk:mk, t:false, lead:leads, world:k, pt:proj(k),
+                   col:col, alpha:labelAlpha});
       }
 
       if(showT()){
@@ -2080,13 +2320,9 @@
         line(O, kt, colT, 1.4, [5,4], mk.m===0 ? 0.85 : 0.5);
         dotAt(kt, colT, 2.6);
         if(mk.m === 0) ringAt(kt, colT, 5.4, 1.1, 0.8);
-        if(wantLabel){
-          ctx.save(); ctx.globalAlpha = labelAlpha;
-          label(kt, tag, colT, 8, -1, 11.5);
-          ctx.restore();
-        }
+        cand.push({mk:mk, t:true, lead:leads && mk.m === 0, world:kt,
+                   pt:proj(kt), col:colT, alpha:labelAlpha});
       }
-      liveIdx++;
     }
 
     // --- the band, smeared along the rim: each order becomes a spectrum
@@ -2165,6 +2401,9 @@
     label(kvec(Math.PI + alp/2),
           symInc() + " " + fmt(S.alpha,1) + "\u00b0", "#b9c4da", 10, -6, 11.5);
 
+    // Last, so every annotation above has already reserved its pixels.
+    drawOrderLabels(cand);
+
     paintReadout(sc);
     drawStrip(sc);
   }
@@ -2175,8 +2414,15 @@
 
   function drawStrip(sc){
     var spec = sc.spec;
-    if(!spec || spec.tooMany || !spec.rows.length){ host.hidden = true; return; }
-    host.hidden = false;
+    var want = !!(spec && !spec.tooMany && spec.rows.length);
+    host.hidden = !want;
+    // Opening or closing the strip moves the caption, which moves the box the
+    // scene is fitted into -- and the camera was fitted earlier in this same
+    // draw. Re-measure and take one more frame when it actually moved; the
+    // alternative is deciding strip visibility before the fit, which would
+    // mean computing the spectrum twice every frame to save one.
+    if(measureChrome()) requestAnimationFrame(draw);
+    if(!want) return;
 
     var w = host.clientWidth, h = 178;
     sv.width = Math.round(w*DPR); sv.height = Math.round(h*DPR);
@@ -2237,9 +2483,24 @@
       drawBand(row, y, laneH-3, spec, 1);
       y += laneH;
     }
+    // The gutter is 39px of usable width and "+3 weaker" wants about 54, so
+    // the long form was drawn off the left edge of the canvas and clipped at
+    // every width -- and at seven lanes it also landed on "arc" below it.
+    // Shorten to fit the gutter, and give way entirely when the lanes have
+    // used the height this would have sat in. The count is a footnote; "arc"
+    // labels a row of data.
     if(spec.rows.length > lanesRows.length){
+      var extra = "+" + (spec.rows.length - lanesRows.length);
+      var forms = [extra + " weaker", extra + " more", extra];
       sctx.fillStyle="#3f4a60"; sctx.textAlign="right"; sctx.textBaseline="middle";
-      sctx.fillText("+"+(spec.rows.length-lanesRows.length)+" weaker", L-7, y+6);
+      if(y + 6 < BOT - 15 - 4){
+        for(i=0;i<forms.length;i++){
+          if(sctx.measureText(forms[i]).width <= L - 9){
+            sctx.fillText(forms[i], L-7, y+6);
+            break;
+          }
+        }
+      }
     }
 
     // the composite: every order drawn into one lane, so overlap IS overlap
@@ -2275,11 +2536,26 @@
       sctx.fillRect(L+72+i*1.6, 7, 1.8, 7);
     }
     sctx.fillStyle="#5d6880";
-    sctx.fillText(fmt(spec.l2,2)+" nm", L+72+100, 6);
+    var l2Text = fmt(spec.l2,2)+" nm";
+    sctx.fillText(l2Text, L+72+100, 6);
+    // The wavelength scale is data and the overlap note is a gloss, so when
+    // they will not both fit the note gives way -- shortened first, then
+    // dropped. Canvas does not wrap or clip for you: left at full length on a
+    // phone this was drawn straight through "2.67 nm" and "3.33 nm", three
+    // strings in one line of pixels and none of them readable.
+    var leftEnd = L + 72 + 100 + sctx.measureText(l2Text).width;
+    var notes = S.branch === "both"
+      ? ["order overlap, reflected branch (transmitted mirrors it)",
+         "reflected branch", "refl."]
+      : ["order overlap: the same β reached by two orders",
+         "order overlap", "overlap"];
     sctx.textAlign="right";
-    sctx.fillText(S.branch === "both"
-      ? "order overlap, reflected branch (transmitted mirrors it)"
-      : "order overlap: the same β reached by two orders", R, 6);
+    for(i=0;i<notes.length;i++){
+      if(R - sctx.measureText(notes[i]).width > leftEnd + 14){
+        sctx.fillText(notes[i], R, 6);
+        break;
+      }
+    }
   }
 
   // ---- readout -------------------------------------------------------
@@ -2290,6 +2566,7 @@
 
   function paintReadout(sc){
     paintRatio();
+    paintDensity();
     // Grooves per mm, not a period in nm: it is what gratings are specified
     // and ordered by, and 3173 is recognisable where 315.15 is not.
     document.getElementById("config").textContent =
@@ -2599,6 +2876,139 @@
     });
   });
 
+  // Repaint every knob that syncKnobs() does not already own. syncKnobs is
+  // about the two parameterisations of the mount; this is for the knobs whose
+  // value can be changed from somewhere other than their own slider -- typed
+  // entry, and a restored session.
+  function syncOtherKnobs(){
+    Object.keys(K).forEach(function(key){
+      if(MOUNT_KNOBS.indexOf(key) >= 0) return;
+      var spec = K[key];
+      document.getElementById(spec.el).value = spec.set(S[key]);
+      document.getElementById(spec.out).textContent = spec.fmt(S[key]);
+    });
+  }
+
+  // Each segmented control keeps its own paint(). They register here so a
+  // restored session can bring every one back into agreement with S in one
+  // call, instead of the restore having to know what controls exist.
+  var REPAINT = [];
+
+  // ---- typed entry ----------------------------------------------------
+  //
+  // The accepted range is read from each SLIDER's own min/max through the same
+  // get() a drag uses, so there is one statement of every range in this file,
+  // a typed value and a dragged one cannot disagree, and a knob whose range
+  // changes needs no edit here.
+  //
+  // Everything commits through spec.apply() where there is one, so the
+  // axis-space clamping that stops (eta, phi) walking under their own knobs
+  // applies to a typed eta exactly as it does to a dragged one. Typing is not
+  // a second way into the state; it is the same way in.
+  //
+  // disp/undisp exist because two readouts do not show the number they store:
+  // gamma may be displayed as its complement under the elevation convention,
+  // and band is stored as a full fractional width but read as a half-width
+  // percentage. Both are involutions, which is why one pair covers each.
+  var EDIT = {
+    gamma: {dec:3, disp:function(x){return S.conv.cone==="phi" ? 90-x : x;},
+                   undisp:function(u){return S.conv.cone==="phi" ? 90-u : u;}},
+    alpha: {dec:1},
+    eta:   {dec:3},
+    gyaw:  {dec:3},
+    groll: {dec:2},
+    lambda:{dec:2},
+    period:{dec:1},
+    blaze: {dec:1},
+    band:  {dec:1, disp:function(x){return 50*x;}, undisp:function(u){return u/50;}}
+  };
+
+  function knobBounds(spec){
+    var el = document.getElementById(spec.el);
+    var a = spec.get(parseFloat(el.min)), b = spec.get(parseFloat(el.max));
+    return [Math.min(a,b), Math.max(a,b)];
+  }
+
+  function commitEdit(key, ed, text){
+    var raw = parseFloat(String(text).replace(",", ".").replace(/[^0-9eE+\-.]/g, ""));
+    if(!isFinite(raw)) return false;
+    var spec = K[key], b = knobBounds(spec);
+    var x = ed.undisp ? ed.undisp(raw) : raw;
+    if(!isFinite(x)) return false;
+    x = Math.max(b[0], Math.min(b[1], x));
+    stopSweep();                       // a typed value wins over the sweep
+    if(spec.apply) spec.apply(x); else S[key] = x;
+    syncKnobs(); syncOtherKnobs();
+    invalidate(); draw();
+    return true;
+  }
+
+  // out        the span that shows the value
+  // key        which knob it belongs to
+  // ed         how to turn the stored number into the shown one, and back
+  function attachEditor(out, key, ed){
+    if(!out) return;
+    var cell = document.createElement("div");
+    cell.className = "valcell";
+    out.parentNode.insertBefore(cell, out);
+    cell.appendChild(out);
+    out.classList.add("editable");
+    out.tabIndex = 0;
+    out.setAttribute("role", "button");
+    out.setAttribute("aria-label", "edit " + key);
+
+    var input = document.createElement("input");
+    input.type = "text"; input.inputMode = "decimal"; input.className = "valedit";
+    input.hidden = true;
+    input.setAttribute("aria-label", key);
+    cell.appendChild(input);
+
+    function open(){
+      if(!input.hidden) return;
+      var v = knobValue(K[key], key);
+      input.value = fmt(ed.disp ? ed.disp(v) : v, ed.dec);
+      input.hidden = false;
+      // visibility rather than display, so the cell keeps the width the
+      // number had and the row does not twitch on every edit.
+      out.style.visibility = "hidden";
+      input.focus(); input.select();
+    }
+    function close(){ input.hidden = true; out.style.visibility = ""; }
+
+    out.addEventListener("click", open);
+    out.addEventListener("keydown", function(e){
+      if(e.key === "Enter" || e.key === " "){ e.preventDefault(); open(); }
+    });
+    input.addEventListener("input", function(){ input.classList.remove("bad"); });
+    input.addEventListener("keydown", function(e){
+      e.stopPropagation();
+      if(e.key === "Enter"){
+        e.preventDefault();
+        if(commitEdit(key, ed, input.value)){ close(); out.focus(); }
+        else input.classList.add("bad");
+      } else if(e.key === "Escape"){
+        e.preventDefault(); close(); out.focus();
+      }
+    });
+    // Blur commits what is there. Tapping away on a phone is how most edits
+    // end, and throwing the number away then would be the wrong guess.
+    input.addEventListener("blur", function(){
+      if(!input.hidden){ commitEdit(key, ed, input.value); close(); }
+    });
+  }
+
+  Object.keys(EDIT).forEach(function(key){
+    attachEditor(document.getElementById(K[key].out), key, EDIT[key]);
+  });
+  // The same grating, said in grooves per mm. Its own editor, the same state.
+  var DENSITY_ED = {dec:0, disp:function(p){return 1e6/p;},
+                           undisp:function(d){return d>0 ? 1e6/d : Infinity;}};
+  attachEditor(document.getElementById("v-density"), "period", DENSITY_ED);
+  function paintDensity(){
+    document.getElementById("v-density").textContent =
+      fmt(1e6/S.period, 0) + " ℓ/mm";
+  }
+
   (function(){
     var seg = document.getElementById("mountseg"), out = document.getElementById("v-mount");
     function show(sel, on){
@@ -2621,7 +3031,7 @@
         paint(); draw();         // the same geometry, named differently
       });
     });
-    paint();
+    REPAINT.push(paint); paint();
   })();
 
   (function(){
@@ -2640,7 +3050,7 @@
         paint(); draw();       // geometry only -- no physics to recompute
       });
     });
-    paint();
+    REPAINT.push(paint); paint();
   })();
 
   (function(){
@@ -2658,7 +3068,7 @@
         paint(); invalidate(); draw();
       });
     });
-    paint();
+    REPAINT.push(paint); paint();
   })();
 
   (function(){
@@ -2679,7 +3089,7 @@
         paint(); invalidate(); draw();
       });
     });
-    paint();
+    REPAINT.push(paint); paint();
     window.__paintModel = paint;     // the coating control re-runs this
   })();
 
@@ -2699,7 +3109,7 @@
         invalidate(); draw();
       });
     });
-    paint();
+    REPAINT.push(paint); paint();
   })();
 
   var rimEl = document.getElementById("rim");
@@ -2966,8 +3376,12 @@
 
   /** A control takes its own input; everything else is the viewer's. */
   function onControl(e){
+    // .valcell covers the editable readouts in the TOOLBAR -- gamma, alpha,
+    // eta, phi. Without it a tap meant for the number starts an orbit, and
+    // the scene spins away under the finger instead of opening an editor.
     return !!(e.target.closest("#sheet") || e.target.closest("button")
-              || e.target.closest("input") || e.target.closest("label"));
+              || e.target.closest("input") || e.target.closest("label")
+              || e.target.closest(".valcell"));
   }
 
   stage.addEventListener("pointerdown", function(e){
@@ -3457,7 +3871,187 @@
     Array.prototype.forEach.call(seg.children, function(b){
       b.addEventListener("click", function(){ S.kform = b.dataset.v; paint(); });
     });
-    paint();
+    REPAINT.push(paint); paint();
+  })();
+
+  // ---- the session, remembered ---------------------------------------
+  //
+  // A calculator that forgets the grating you were working on is a toy: the
+  // whole point of typing p = 160.0 nm is not having to type it again.
+  //
+  // The CAMERA is deliberately not kept. Coming back to a wavelength you chose
+  // is continuity; coming back to an orbit you happened to leave the scene at
+  // is disorientation, and Recentre is the only way out of it.
+  //
+  // Everything read back is validated before it is believed. A stored file is
+  // outside the program -- it survives an upgrade that moves a slider's range,
+  // it can be edited by hand, and in a browser it is shared with whatever else
+  // sits on this origin. So enums are checked against their own lists, numbers
+  // against the knob bounds they will be clamped to anyway, and anything that
+  // fails is simply left at its default rather than rejected loudly.
+  var STORE = "gratinglab.session.v1";
+  var SAVED_NUM  = ["gamma","alpha","groll","lambda","band","period","blaze","rim"];
+  var SAVED_ENUM = {mode:["geometry","efficiency"], branch:["R","T","B"],
+                    reflModel:["local","average","facet"]};
+
+  function saveSession(){
+    try{
+      var o = {conv:S.conv, coating:!!S.coating, immersive:!!S.immersive};
+      SAVED_NUM.forEach(function(k){ o[k] = S[k]; });
+      Object.keys(SAVED_ENUM).forEach(function(k){ o[k] = S[k]; });
+      localStorage.setItem(STORE, JSON.stringify(o));
+    }catch(_){}
+    // Private browsing, a full quota, or an embedder that refuses storage.
+    // Losing the session is a smaller harm than a dialog about it.
+  }
+
+  function restoreSession(){
+    var o = null;
+    try{ o = JSON.parse(localStorage.getItem(STORE) || "null"); }catch(_){ return false; }
+    if(!o || typeof o !== "object") return false;
+
+    SAVED_NUM.forEach(function(k){
+      var v = o[k];
+      if(typeof v !== "number" || !isFinite(v)) return;
+      if(K[k]){ var b = knobBounds(K[k]); v = Math.max(b[0], Math.min(b[1], v)); }
+      else v = Math.max(0, Math.min(1, v));            // rim, which has no K entry
+      S[k] = v;
+    });
+    Object.keys(SAVED_ENUM).forEach(function(k){
+      if(SAVED_ENUM[k].indexOf(o[k]) >= 0) S[k] = o[k];
+    });
+    if(typeof o.coating === "boolean") S.coating = o.coating;
+    if(typeof o.immersive === "boolean") S.immersive = o.immersive;
+    // Spelling only, and each field has to keep the type it started with --
+    // betaSign is a number and the rest are strings, and a hand-edited file
+    // that swaps them would otherwise reach fmt().
+    if(o.conv && typeof o.conv === "object"){
+      Object.keys(S.conv).forEach(function(k){
+        if(typeof o.conv[k] === typeof S.conv[k]) S.conv[k] = o.conv[k];
+      });
+    }
+    return true;
+  }
+
+  if(restoreSession()){
+    REPAINT.forEach(function(f){ f(); });
+    syncKnobs(); syncOtherKnobs();
+    var rimEl = document.getElementById("rim");
+    if(rimEl) rimEl.value = Math.round(S.rim*1000);
+    invalidate();
+  }
+
+  // Written on the way out rather than on every change: a drag is hundreds of
+  // input events and localStorage is synchronous. pagehide fires where
+  // beforeunload does not on iOS, and visibilitychange is the one that fires
+  // when an app is backgrounded and then killed, which is how a phone app
+  // usually ends.
+  window.addEventListener("pagehide", saveSession);
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "hidden") saveSession();
+  });
+
+  (function(){
+    var btn = document.getElementById("immerse"), app = document.getElementById("app");
+    function paint(){
+      app.classList.toggle("immersive", !!S.immersive);
+      btn.setAttribute("aria-pressed", S.immersive ? "true" : "false");
+      btn.title = S.immersive ? "Show the panels again"
+                              : "Give the scene the whole screen";
+      // The hidden elements were part of the box the camera is fitted into,
+      // so the fit has to be redone rather than waiting for the next gesture.
+      measureChrome(); resize();
+    }
+    btn.addEventListener("click", function(){ S.immersive = !S.immersive; paint(); });
+    REPAINT.push(paint); paint();
+  })();
+
+  // ---- copy the numbers out -------------------------------------------
+  //
+  // The answer has to be able to leave: into a logbook, a beamline script, a
+  // message to whoever is cutting the grating. Plain text, aligned, with the
+  // geometry at the top, because an order table with no mount written above it
+  // is not evidence of anything.
+  function report(){
+    var sc = physics(), L = [];
+    L.push("grating lab · cone of diffraction");
+    L.push(fmt(1e6/S.period,0) + " ℓ/mm  (p = " + fmt(S.period,2) + " nm)");
+    L.push("γ = " + fmtAng(S.gamma) + "°   α = " + fmt(S.alpha,2) + "°");
+    L.push("η = " + fmtAng(substrateGraze()*DEG) + "°   φ = "
+           + fmtAng(stageYaw()*DEG) + "°"
+           + (S.groll ? "   ϕ = " + fmt(S.groll,2) + "°" : ""));
+    L.push("λ = " + fmt(S.lambda,3) + " nm"
+           + (S.band > 0.002 ? "  ±" + fmt(50*S.band,1) + "%" : "  (monochromatic)"));
+    if(!geometryOnly()){
+      L.push("δ = " + fmt(S.blaze,2) + "°   "
+             + (S.coating ? "Au" : "uncoated") + "   R model: " + S.reflModel);
+    }
+    L.push("λ / (p sin γ) = " + fmt(reducedRatio(),4));
+    if(sc.eff) L.push("ΣE = " + fmt(sc.eff.sum,4) + "   (never renormalised)");
+    L.push("");
+    L.push(sc.live + " propagating of " + sc.marks.length + " drawn"
+           + (sc.step > 1 ? ", every " + sc.step + "th" : "")
+           + (sc.blaze != null ? "  ·  blaze near m = " + sc.blaze : ""));
+    L.push("");
+
+    var showE = !geometryOnly() && sc.eff;
+    L.push(pad("m",6) + pad("sin β",12) + pad("β",12) + (showE ? "E" : ""));
+    for(var i=0;i<sc.marks.length;i++){
+      var m = sc.marks[i];
+      var b = !m.prop ? "evan."
+            : fmt(betaShown(m.beta*DEG),3) + "°";
+      var e = !showE ? ""
+            : (m.eff != null && showR()) ? fmt(m.eff,5) : "—";
+      L.push(pad((m.m>0?"+":"")+m.m,6) + pad(fmt(m.s,5),12) + pad(b,12) + e);
+    }
+    if(!showE && !geometryOnly()){
+      L.push("");
+      L.push("efficiency omitted above " + MAX_DRAWN + " orders");
+    }
+    if(showT()){
+      L.push("");
+      L.push("transmitted orders carry a direction only: the ported solver is");
+      L.push("a reflection-grating model and computes no transmitted efficiency.");
+    }
+    return L.join("\n");
+  }
+  function pad(s, n){
+    s = String(s);
+    while(s.length < n) s += " ";
+    return s;
+  }
+
+  (function(){
+    var btn = document.getElementById("copyorders");
+    if(!btn) return;
+    var revert = null;
+    function say(msg){
+      btn.textContent = msg;
+      clearTimeout(revert);
+      revert = setTimeout(function(){ btn.textContent = "copy"; }, 1600);
+    }
+    btn.addEventListener("click", function(){
+      var text = report();
+      // The async clipboard is refused outside a secure context, and a
+      // file:// or plain-http build is exactly where this would be tried.
+      // The textarea fallback is what works there, so it is kept rather than
+      // left as a branch nobody reaches.
+      function fallback(){
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly","");
+        ta.style.cssText = "position:fixed;top:-1000px;opacity:0;";
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try{ ok = document.execCommand("copy"); }catch(_){}
+        document.body.removeChild(ta);
+        say(ok ? "copied" : "press and hold to copy");
+      }
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){ say("copied"); }, fallback);
+      }else fallback();
+    });
   })();
 
   showHint();                      // say what has been seen from the start
