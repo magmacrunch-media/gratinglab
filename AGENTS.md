@@ -453,10 +453,37 @@ beside a side sheet that costs the scene no height at all.
 **`.caption` is inside `#stage` and `.open` is on `#sheet`, which is its
 sibling**, so the class that reaches it goes on `#app`. `setSheet()` sets it.
 
-**What is still true and was not fixed**: γ, α, η and φ have sliders in the
-toolbar and nowhere else, so while a bottom sheet is open they cannot be moved.
-That is the same root cause and a different decision, and duplicating those
-sliders into the sheet would put two controls on one piece of state.
+### The mount rows move into the sheet rather than being copied into it
+
+γ, α, η and φ have sliders in the toolbar and nowhere else, so an open bottom
+sheet left them unreachable. Giving the sheet its own pair would put **two
+controls on one piece of state**, which is the arrangement every other part of
+this file is arranged to avoid.
+
+So the rows themselves move. `placeMountRows()` takes the `.phys` elements out
+of the toolbar and into `#mounthost` at the top of the Setup tab while a bottom
+sheet is open, and puts them back when it closes. There is still exactly one
+element per knob, so `K`, `syncKnobs()`, the drag handlers and the typed-entry
+editors are untouched and none of them has to know it happens. The `.cone-only`
+and `.axes-only` toggling keeps working because it is a `querySelectorAll`,
+which finds them wherever they are.
+
+A **side** sheet covers nothing, so the rows stay in the toolbar there. The test
+is `viewRect()`'s, a sheet narrower than the stage being at the side, and it is
+measured rather than read off the media query so there is no second copy of that
+condition to keep in step.
+
+The toolbar loses 38px while they are gone, which the strip, the caption and the
+fitted scene all follow, because `placeMountRows()` ends by calling
+`measureChrome()`.
+
+**The browser pane cannot test the rotation path.** A hidden pane produces no
+frames, so an emulated viewport change dispatches no `resize` event, and a
+`ResizeObserver` on the sheet is not delivered either: one was added here on the
+belief that it would cover the gap, and it did not, because the gap is frames
+rather than events. A real rotation fires `resize` and `orientationchange` and
+the handler is correct. Dispatch a `resize` by hand to exercise it in the pane,
+and do not read the emulator's silence as a bug in the placement.
 
 **Check this the way it was found**, with the overlap measured rather than
 eyeballed. Load the page in an iframe at each size, dismiss the title, open a

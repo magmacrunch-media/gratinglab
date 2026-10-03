@@ -314,6 +314,24 @@
   }
   .knob .val.over{color:var(--blaze);}
 
+  /* The mount rows, while they are living in the sheet. Restyled from the
+     toolbar's flex row into the same three-column grid every other knob uses,
+     so they read as the first two knobs rather than as a transplant. */
+  #mounthost{
+    display:grid; grid-template-columns:1fr; gap:14px;
+    padding:14px 16px; border-bottom:1px solid var(--rule);
+  }
+  #mounthost[hidden]{display:none;}   /* (0,1,0) beats the UA sheet; see .phys */
+  #mounthost .phys{
+    display:grid; grid-template-columns:auto 1fr auto;
+    align-items:center; gap:12px; flex:none;
+  }
+  #mounthost .phys[hidden]{display:none;}
+  #mounthost .phys label{
+    width:74px; text-align:left; font-size:12px; color:var(--ink-dim);
+  }
+  #mounthost .phys .val{width:82px;}
+
   /* -- typed entry ----------------------------------------------------- */
   /* A slider cannot be asked for lambda = 2.40 nm or p = 160.0 nm exactly,
      and those are the numbers somebody designing a grating actually has. So
@@ -915,6 +933,13 @@
     </div>
     <div class="sheetbody">
     <section data-p="setup">
+    <!-- While a bottom sheet is open the toolbar is underneath it, and the
+         mount sliders are the only copy of themselves in the page. They move
+         HERE rather than being duplicated, so there is still exactly one
+         control per knob and syncKnobs, the drag handlers and the typed-entry
+         editors all come along without knowing it happened. Empty, and
+         hidden, whenever they are in the toolbar where they belong. -->
+    <div id="mounthost" hidden></div>
     <div class="views" id="views"></div>
 
     <div class="knobs">
@@ -1132,7 +1157,14 @@
     return changed;
   }
 
-  function resize(){ measure(); measureChrome(); draw(); }
+  // A rotation turns a bottom sheet into a side one, which covers nothing, so
+  // the mount rows belong back in the toolbar. placeMountRows() decides, and
+  // the `resize` and `orientationchange` listeners at the foot of this file
+  // are what get it asked. Note the browser pane cannot demonstrate this: a
+  // hidden pane produces no frames, so an emulated viewport change dispatches
+  // no resize event, and a ResizeObserver on the sheet would not be delivered
+  // either. Dispatch a `resize` by hand to exercise the handler there.
+  function resize(){ measure(); placeMountRows(); measureChrome(); draw(); }
 
   // ---- physics -------------------------------------------------------
   function sinBeta(m, lam){
@@ -3565,12 +3597,49 @@
 
   function sheetOpen(){ return sheet.classList.contains("open"); }
 
+  // ---- the mount rows follow the sheet --------------------------------
+  //
+  // gamma, alpha, eta and phi have sliders in the toolbar and nowhere else,
+  // and an open bottom sheet is drawn over the toolbar. Rather than give them
+  // a second slider in the sheet, which would be two controls on one piece of
+  // state and a drift waiting to happen, the rows themselves move: out of the
+  // toolbar into #mounthost while a bottom sheet is open, and back when it
+  // closes. There is still exactly one element per knob, so K, syncKnobs, the
+  // drag handlers and the typed-entry editors are all untouched by this and do
+  // not have to know it happens.
+  //
+  // A SIDE sheet covers nothing, so the rows stay in the toolbar there. The
+  // test is viewRect()'s: a sheet narrower than the stage is at the side.
+  var mountHost = document.getElementById("mounthost");
+  var toolbarAnchor = document.getElementById("sheetbtn");   // rows sit before it
+  function placeMountRows(){
+    // resize() calls this, and resize() can fire during init before the vars
+    // above have been assigned. Function declarations hoist; `var`s do not.
+    if(!mountHost || !sheet || !toolbarAnchor) return;
+    var rows = document.querySelectorAll(".phys");
+    if(!rows.length) return;
+    var sb = sheet.getBoundingClientRect();
+    var bottomSheet = sb.width >= stage.clientWidth - 8;
+    var intoSheet = sheet.classList.contains("open") && bottomSheet;
+    var inSheet = mountHost.contains(rows[0]);
+    if(intoSheet === inSheet) return;                        // already there
+    for(var i=0;i<rows.length;i++){
+      if(intoSheet) mountHost.appendChild(rows[i]);
+      else toolbarEl.insertBefore(rows[i], toolbarAnchor);
+    }
+    mountHost.hidden = !intoSheet;
+    // The toolbar just lost or gained two rows, so its height changed and the
+    // strip, the caption and the fitted scene all hang off that.
+    measureChrome();
+  }
+
   function setSheet(open){
     sheet.classList.toggle("open", open);
     // The caption reads this; .open is on the sheet, which is a SIBLING of the
     // stage the caption lives in, so a class on the shared parent is what
     // reaches it.
     document.getElementById("app").classList.toggle("sheetopen", open);
+    placeMountRows();
     sheetBtn.setAttribute("aria-expanded", open ? "true" : "false");
     sheetBtn.textContent = open ? "Hide" : "Controls";
     draw();                      // the scene recentres on the visible area
