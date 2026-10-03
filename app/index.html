@@ -55,6 +55,11 @@
          --foot-h     the toolbar plus the strip when the strip is open */
     --toolbar-h: 56px;
     --foot-h: 56px;
+    /* The edge the dispersion strip sits on, and its own height. Both are
+       published from the script; the values here are only what applies
+       before the first frame. */
+    --strip-bottom: 56px;
+    --strip-h: 178px;
   }
   html,body{height:100%;}
   body{
@@ -71,11 +76,13 @@
      actually see and the rail's first row ends up clipped. dvh is the visible
      one; the 100% above stays as the fallback. */
   @supports (height: 100dvh){ #app{height:100dvh;} }
+  /* --strip-bottom is the toolbar normally, and the SHEET while a bottom
+     sheet is open: see measureChrome(). */
   #striphost{
-    position:absolute; left:0; right:0; bottom:var(--toolbar-h); z-index:2;
+    position:absolute; left:0; right:0; bottom:var(--strip-bottom); z-index:2;
     background:#070c14f2; border-top:1px solid var(--rule);
   }
-  #strip{display:block; width:100%; height:150px;}
+  #strip{display:block; width:100%; height:var(--strip-h);}
   /* -- stage ---------------------------------------------------------- */
   #stage{
     position:absolute; inset:0;
@@ -456,6 +463,32 @@
     background:var(--blaze); margin-left:6px; vertical-align:2px;
   }
   .vflag.on{display:inline-block;}
+
+  /* A bottom sheet and the dispersion strip cannot both have the foot of the
+     screen, and the strip was losing it outright: completely hidden, while the
+     very sliders that drive it sat in the sheet on top of it. The sheet hands
+     back exactly the strip's height, so the strip can park above it and the
+     SCENE keeps the room it had. A panel that scrolls pays in scrolling; the
+     picture would have paid in pixels it cannot spare.
+
+     Only the bottom sheet. The side-panel rule below sets `max-height:none`
+     and comes after this on purpose, so a landscape window, where the sheet
+     covers nothing, is left exactly as it was. */
+  #stage.hasstrip ~ #sheet{max-height:calc(62% - var(--strip-h));}
+
+  /* With a BOTTOM sheet open the scene is already the smaller half, and the
+     caption is a disclaimer whose statements the sheet's own Notes tab
+     carries in full. So it gives way to the picture and the strip: the same
+     trade the short-screen rule makes, for the same reason, in the other
+     case where the height is contested.
+
+     The query is the exact complement of the side-panel one below, written
+     with `not` rather than as max-aspect-ratio and max-width, which would
+     both match a square window and hide the caption beside a side sheet that
+     costs the scene no height at all. */
+  @media not all and (min-aspect-ratio: 1/1) and (min-width: 560px){
+    #app.sheetopen .caption{display:none;}
+  }
 
   /* Landscape, and any wide window: the sheet comes in from the side instead,
      so it never covers the middle of the picture. This is the case the phone
@@ -1009,6 +1042,11 @@
   var RAD = Math.PI/180, DEG = 180/Math.PI;
   var PATCH_SPAN = 0.34, MIN_RIM_MAG = 1.5;
   var MAX_DRAWN = 81;
+  // The dispersion strip's height, in CSS pixels. Shared: drawStrip sizes the
+  // canvas with it and the layout below subtracts it from the sheet, so the
+  // two cannot disagree. It was written twice before, 150px in the stylesheet
+  // and 178 here, and the stylesheet's copy was simply dead.
+  var STRIP_H = 178;
 
   var S = {
     period:315.15, alpha:25, gamma:1.5, lambda:3, blaze:29.5, band:0, coating:true,
@@ -1052,11 +1090,37 @@
   // nothing here adds --sab a second time.
   var toolbarEl = document.getElementById("toolbar");
   var stripHostEl = document.getElementById("striphost");
+  var sheetEl = document.getElementById("sheet");
   var rootEl = document.documentElement;
   var lastFoot = -1;
   function measureChrome(){
     var tb = toolbarEl.offsetHeight;
     rootEl.style.setProperty("--toolbar-h", tb + "px");
+    rootEl.style.setProperty("--strip-h", STRIP_H + "px");
+
+    // An open BOTTOM sheet covers the toolbar and the strip, both of which sit
+    // under it at the foot of the stage. Losing the toolbar to it is a fair
+    // trade: the toolbar is controls and the sheet is controls, and the sheet
+    // is the one being read. Losing the STRIP is not. The band, the
+    // wavelength, the period and the blaze all live in that sheet, and the
+    // strip is what they move; hidden behind it, the sliders that change it
+    // are the only ones on screen and their readout is not.
+    //
+    // So the strip parks on top of the sheet instead, and the sheet gives up
+    // STRIP_H of its own height to make the room (see the rule on
+    // `#stage.hasstrip ~ #sheet`), which costs scrolling in a panel that
+    // scrolls anyway rather than costing the scene its height.
+    //
+    // A SIDE sheet is beside the stage and covers neither, so it is left
+    // alone. The test is the one viewRect() already uses to tell the two
+    // apart: a sheet narrower than the stage is at the side.
+    var stripBottom = tb;
+    if(sheetEl && sheetEl.classList.contains("open")){
+      var sb = sheetEl.getBoundingClientRect();
+      if(sb.width >= W - 8) stripBottom = Math.max(tb, sb.height);
+    }
+    rootEl.style.setProperty("--strip-bottom", stripBottom + "px");
+
     var foot = tb;
     if(!stripHostEl.hidden){
       var r = stripHostEl.getBoundingClientRect();
@@ -2424,7 +2488,7 @@
     if(measureChrome()) requestAnimationFrame(draw);
     if(!want) return;
 
-    var w = host.clientWidth, h = 178;
+    var w = host.clientWidth, h = STRIP_H;
     sv.width = Math.round(w*DPR); sv.height = Math.round(h*DPR);
     sv.style.width = w+"px"; sv.style.height = h+"px";
     sctx.setTransform(DPR,0,0,DPR,0,0);
@@ -3503,6 +3567,10 @@
 
   function setSheet(open){
     sheet.classList.toggle("open", open);
+    // The caption reads this; .open is on the sheet, which is a SIBLING of the
+    // stage the caption lives in, so a class on the shared parent is what
+    // reaches it.
+    document.getElementById("app").classList.toggle("sheetopen", open);
     sheetBtn.setAttribute("aria-expanded", open ? "true" : "false");
     sheetBtn.textContent = open ? "Hide" : "Controls";
     draw();                      // the scene recentres on the visible area

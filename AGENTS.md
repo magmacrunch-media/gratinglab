@@ -411,6 +411,53 @@ which runs after the camera has been fitted. `measureChrome()` reports whether
 the foot moved and `drawStrip` takes one more frame when it did, rather than
 computing the spectrum twice every frame to save it.
 
+### The bottom sheet is the fourth thing wanting the foot of the screen
+
+`--toolbar-h` and `--foot-h` settled three of them. The sheet is the fourth, and
+it does not overlap so much as sit on top: `z-index: 6` against the strip's 2 and
+the toolbar's 3, so with it open on a portrait phone **both were covered
+completely**, and the measurements above all read zero because nothing was
+overlapping in the layout at all.
+
+Losing the toolbar to it is a fair trade. The toolbar is controls, the sheet is
+controls, and the sheet is the one being read. Losing the strip is not: the band,
+the wavelength, the period and the blaze all live in that sheet, the strip is
+what they move, and hidden behind it the sliders that change it were the only
+thing on screen and their readout was not.
+
+So the strip parks on top of the sheet instead. `--strip-bottom` is the toolbar
+normally and the sheet's own height while a **bottom** sheet is open; a side
+sheet covers neither and is left alone, and the test for which is the one
+`viewRect()` already uses, a sheet narrower than the stage being at the side.
+
+**The sheet gives up exactly `STRIP_H` to make the room**, through
+`#stage.hasstrip ~ #sheet`. That is the part worth not undoing: without it the
+strip rises into the scene and leaves it 29px, which `viewRect()` then floors at
+80 and the picture is gone. A panel that scrolls pays in scrolling; the scene
+would have paid in pixels it does not have. The scene keeps 206px on a 13 mini
+either way, which is what it had before any of this.
+
+`STRIP_H` is now one number. It was written twice, 150px in the stylesheet and
+178 in `drawStrip`, and the stylesheet's copy was simply dead because the script
+assigns `style.height` after it. Both read the variable now, so the canvas and
+the layout cannot disagree about how tall the strip is.
+
+The caption goes with it, under a bottom sheet only. It is a disclaimer and the
+sheet's own Notes tab carries the same statements in full, which is already the
+reason the `max-height: 540px` rule drops it in landscape. The media query is
+written as the exact complement of the side-panel one, `@media not all and
+(min-aspect-ratio: 1/1) and (min-width: 560px)`, rather than as max-aspect-ratio
+plus max-width: those both match a square window, and would hide the caption
+beside a side sheet that costs the scene no height at all.
+
+**`.caption` is inside `#stage` and `.open` is on `#sheet`, which is its
+sibling**, so the class that reaches it goes on `#app`. `setSheet()` sets it.
+
+**What is still true and was not fixed**: γ, α, η and φ have sliders in the
+toolbar and nowhere else, so while a bottom sheet is open they cannot be moved.
+That is the same root cause and a different decision, and duplicating those
+sliders into the sheet would put two controls on one piece of state.
+
 **Check this the way it was found**, with the overlap measured rather than
 eyeballed. Load the page in an iframe at each size, dismiss the title, open a
 band, and intersect the rects of `#config`/`.thesis`, `.caption`/`#toolbar`,
